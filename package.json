@@ -1,11 +1,11 @@
 {
   "name": "digital-solutions",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/app/index.js",
   "scripts": {
-    "dev": "tsx --env-file=.env --watch src",
+    "dev": "tsx --env-file=.env --watch src/app/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/app/index.js",
     "pretty": "npx prettier . --write"
   },
   "keywords": [],
@@ -21,6 +21,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.3",
     "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "prettier": "3.9.9",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
