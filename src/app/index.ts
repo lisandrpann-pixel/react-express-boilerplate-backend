@@ -9,6 +9,8 @@ const PORT = process.env.PORT || PORT_DEFAULT
 
 app.use(express.json())
 
+app.get('/api-docs/swagger.json', (_req, res) => res.json(swaggerSpec))
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 app.use('/api', usersRouter)

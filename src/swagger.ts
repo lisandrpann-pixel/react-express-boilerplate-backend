@@ -10,7 +10,7 @@ const options = {
     },
     servers: [{ url: 'http://localhost:3000' }],
   },
-  apis: ['pages/users/routes.ts'],
+  apis: ['./src/pages/**/routes.ts'],
 }
 
 const swaggerSpec = swaggerJsdoc(options)
