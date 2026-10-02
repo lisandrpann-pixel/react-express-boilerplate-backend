@@ -31,6 +31,13 @@ const router = Router()
  *           minimum: 0
  *           maximum: 100
  *           default: 20
+ *       - name: userIdFilter
+ *         in: query
+ *         required: false
+ *         description: Фильтр по id пользователя
+ *         schema:
+ *           type: string
+ *           default: ""
  *     responses:
  *       '200':
  *         description: Страница пользователей
@@ -71,6 +78,9 @@ const router = Router()
  *                     offset:
  *                       type: integer
  *                       example: 0
+ *                     userIdFilter:
+ *                       type: string
+ *                       example: "6abd36d86f3bc69b539086d4"
  *                     limit:
  *                       type: integer
  *                       example: 20

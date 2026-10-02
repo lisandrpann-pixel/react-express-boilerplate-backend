@@ -3,6 +3,7 @@ import { UserModel } from './model'
 export type UsersDto = {
   data: UserDto[]
   pagination: {
+    userIdFilter?: string
     offset: number
     limit: number
     total: number

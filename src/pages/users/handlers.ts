@@ -1,25 +1,31 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
 import rawUsers from './data.json'
 import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
 } from '../../shared/configs/pagination.config'
 import { parseNonNegativeInt } from '../../shared/utils/mapping.utils'
-import { PaginationQuery } from '../../shared/types/pagination.types'
+import { PaginationAndFilterQuery } from '../../shared/types/pagination.types'
 import { UserModel } from '../../entities/users/model'
 import { UserDto, UsersDto } from '../../entities/users/dto'
 import { ResponseError } from '../../shared/types/error.types'
 
-const users = rawUsers as UserModel[]
+const usersRaw = rawUsers as UserModel[]
 
-const usersById = new Map(users.map((user) => [user._id, user]))
+const usersMap = new Map(usersRaw.map((user) => [user._id, user]))
 
 export const getUsers = (
-  req: Request<Record<string, string>, unknown, unknown, PaginationQuery>,
+  req: Request<
+    Record<string, string>,
+    unknown,
+    unknown,
+    PaginationAndFilterQuery
+  >,
   res: Response<UsersDto | ResponseError>
 ) => {
   const offset = parseNonNegativeInt(req.query.offset, 0)
   const limit = parseNonNegativeInt(req.query.limit, DEFAULT_LIMIT)
+  const userIdFilter = req.query.userIdFilter
 
   if (offset === null) {
     return res
@@ -34,15 +40,21 @@ export const getUsers = (
   }
 
   const pageSize = Math.min(limit, MAX_LIMIT)
-  const data = users.slice(offset, offset + pageSize)
+
+  const usersList = userIdFilter
+    ? usersRaw.filter((user) => user._id.includes(userIdFilter))
+    : usersRaw
+
+  const data = usersList.slice(offset, offset + pageSize)
 
   res.json({
     data,
     pagination: {
       offset,
       limit: pageSize,
-      total: users.length,
-      hasMore: offset + data.length < users.length,
+      total: usersList.length,
+      hasMore: offset + data.length < usersList.length,
+      ...(userIdFilter ? { userIdFilter } : {})
     },
   })
 }
@@ -53,7 +65,7 @@ export const getUserById = (
 ) => {
   const userId = req.params.id
 
-  const user = usersById.get(userId)
+  const user = usersMap.get(userId)
 
   if (!user) {
     return res.status(404).json({ error: 'User not found' })
