@@ -1,5 +1,5 @@
-import { ID_PATTERN, RANGE_PATTERN } from "../configs/pagination.config"
-import { IdRange } from "../types/pagination.types"
+import { ID_PATTERN, RANGE_PATTERN } from '../configs/pagination.config'
+import { IdRange } from '../types/pagination.types'
 
 export const parseNonNegativeInt = (
   value: string | undefined,
@@ -28,10 +28,6 @@ export const parseIdFilter = (userIdFilter?: string): IdRange[] | null => {
   const idsStrArr = userIdFilter.split(',')
 
   for (const idStr of idsStrArr) {
-    if (!ID_PATTERN.test(idStr)) {
-      return null
-    }
-
     const range = RANGE_PATTERN.exec(idStr)
 
     if (range) {
@@ -51,6 +47,10 @@ export const parseIdFilter = (userIdFilter?: string): IdRange[] | null => {
       ranges.push({ from: fromId, to: toId })
 
       continue
+    }
+
+    if (!ID_PATTERN.test(idStr)) {
+      return null
     }
 
     const id = Number(idStr)

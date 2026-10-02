@@ -34,13 +34,17 @@ export const getUsers = (
   if (offset === null) {
     return res
       .status(400)
-      .json({ error: 'Некорректный offset: ожидается целое положительное число' })
+      .json({
+        error: 'Некорректный offset: ожидается целое положительное число',
+      })
   }
 
   if (limit === null) {
     return res
       .status(400)
-      .json({ error: 'Некорректный limit: ожидается целое положительное число' })
+      .json({
+        error: 'Некорректный limit: ожидается целое положительное число',
+      })
   }
 
   const idRanges = parseIdFilter(userIdFilter)
@@ -48,7 +52,7 @@ export const getUsers = (
   if (idRanges === null) {
     return res.status(400).json({
       error:
-        'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)'
+        'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)',
     })
   }
 
@@ -73,19 +77,21 @@ export const getUsers = (
 }
 
 export const getUserById = (
-  req: Request<{ id: number }>,
+  req: Request<{ id: string }>,
   res: Response<UserDto | ResponseError>
 ) => {
-  const id = req.params.id
+  const id = Number(req.params.id)
 
   if (!Number.isInteger(id)) {
-    return res.status(400).json({ error: 'Некорректный id: ожидается целое положительное число' })
+    return res
+      .status(400)
+      .json({ error: 'Некорректный id: ожидается целое положительное число' })
   }
 
   const user = usersMap.get(id)
 
   if (!user) {
-    return res.status(404).json({ error: 'Id не найдет' })
+    return res.status(404).json({ error: 'Id не найден' })
   }
 
   res.json(user)
