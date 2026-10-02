@@ -3,3 +3,8 @@ export type PaginationAndFilterQuery = {
   limit?: string
   userIdFilter?: string
 }
+
+export type IdRange = {
+  from: number
+  to: number
+}

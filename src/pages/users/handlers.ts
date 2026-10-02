@@ -4,7 +4,11 @@ import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
 } from '../../shared/configs/pagination.config'
-import { parseNonNegativeInt } from '../../shared/utils/mapping.utils'
+import {
+  matchesIdFilter,
+  parseIdFilter,
+  parseNonNegativeInt,
+} from '../../shared/utils/mapping.utils'
 import { PaginationAndFilterQuery } from '../../shared/types/pagination.types'
 import { UserModel } from '../../entities/users/model'
 import { UserDto, UsersDto } from '../../entities/users/dto'
@@ -30,19 +34,28 @@ export const getUsers = (
   if (offset === null) {
     return res
       .status(400)
-      .json({ error: 'Invalid offset: expected a non-negative integer' })
+      .json({ error: 'Некорректный offset: ожидается целое положительное число' })
   }
 
   if (limit === null) {
     return res
       .status(400)
-      .json({ error: 'Invalid limit: expected a non-negative integer' })
+      .json({ error: 'Некорректный limit: ожидается целое положительное число' })
+  }
+
+  const idRanges = parseIdFilter(userIdFilter)
+
+  if (idRanges === null) {
+    return res.status(400).json({
+      error:
+        'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)'
+    })
   }
 
   const pageSize = Math.min(limit, MAX_LIMIT)
 
-  const usersList = userIdFilter
-    ? usersRaw.filter((user) => user.id.includes(userIdFilter))
+  const usersList = idRanges.length
+    ? usersRaw.filter((user) => matchesIdFilter(idRanges, user.id))
     : usersRaw
 
   const data = usersList.slice(offset, offset + pageSize)
@@ -54,21 +67,25 @@ export const getUsers = (
       limit: pageSize,
       total: usersList.length,
       hasMore: offset + data.length < usersList.length,
-      ...(userIdFilter ? { userIdFilter } : {})
+      ...(userIdFilter ? { userIdFilter } : {}),
     },
   })
 }
 
 export const getUserById = (
-  req: Request<{ id: string }>,
+  req: Request<{ id: number }>,
   res: Response<UserDto | ResponseError>
 ) => {
-  const userId = req.params.id
+  const id = req.params.id
 
-  const user = usersMap.get(userId)
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'Некорректный id: ожидается целое положительное число' })
+  }
+
+  const user = usersMap.get(id)
 
   if (!user) {
-    return res.status(404).json({ error: 'User not found' })
+    return res.status(404).json({ error: 'Id не найдет' })
   }
 
   res.json(user)
