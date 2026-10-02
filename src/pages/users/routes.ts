@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createUser, getUserById, getUsers } from './handlers'
+import { changeUser, createUser, getUserById, getUsers } from './handlers'
 
 const router = Router()
 
@@ -14,6 +14,8 @@ const router = Router()
  *       ограничивается до 100. Фильтрация применяется до пагинации,
  *       поэтому offset отсчитывается уже по отфильтрованной выборке,
  *       а total показывает количество пользователей после фильтрации.
+ *       В data.json хранится 1000000 пользователей с id от 1 до 1000000,
+ *       у всех isChosen равно false, а order совпадает с id.
  *     tags:
  *       - Users
  *     parameters:
@@ -65,9 +67,19 @@ const router = Router()
  *                     type: object
  *                     required:
  *                       - id
+ *                       - isChosen
+ *                       - order
  *                     properties:
  *                       id:
  *                         type: integer
+ *                         example: 1
+ *                       isChosen:
+ *                         type: boolean
+ *                         description: Отмечен ли пользователь как выбранный
+ *                         example: false
+ *                       order:
+ *                         type: integer
+ *                         description: Порядковый номер пользователя
  *                         example: 1
  *                 pagination:
  *                   type: object
@@ -119,11 +131,13 @@ router.get('/users', getUsers)
  *   post:
  *     summary: Добавить пользователя
  *     description: >
- *       Добавляет пользователя в data.json, тот же файл, из которого
- *       читаются пользователи для GET /api/users. Если пользователь
- *       с таким id уже существует, возвращается 409.
- *       Запись атомарная: сначала во временный файл, затем переименование,
- *       поэтому повреждённый файл не остаётся при сбое записи.
+ *       Добавляет пользователя в тот же набор данных, из которого
+ *       читаются пользователи для GET /api/users. Новый пользователь
+ *       получает isChosen равный false и order равный своему id.
+ *       Данные хранятся только в памяти процесса, data.json не
+ *       изменяется, поэтому после перезапуска сервера созданные
+ *       пользователи исчезают. Если пользователь с таким id уже
+ *       существует, возвращается 400.
  *     tags:
  *       - Users
  *     requestBody:
@@ -149,10 +163,96 @@ router.get('/users', getUsers)
  *               type: object
  *               required:
  *                 - id
+ *                 - isChosen
+ *                 - order
  *               properties:
  *                 id:
  *                   type: integer
  *                   example: 1000001
+ *                 isChosen:
+ *                   type: boolean
+ *                   example: false
+ *                 order:
+ *                   type: integer
+ *                   example: 1000001
+ *       '400':
+ *         description: >
+ *           id отсутствует, не является положительным целым числом
+ *           или уже занят
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   examples:
+ *                     - 'Некорректный id: ожидается целое положительное число'
+ *                     - 'Пользователь с id 1 уже существует'
+ */
+router.post('/users', createUser)
+
+/**
+ * @swagger
+ * /api/users:
+ *   put:
+ *     summary: Изменить пользователя
+ *     description: >
+ *       Полностью заменяет пользователя с указанным id: в памяти
+ *       обновляются поля isChosen и order, после чего пользователь
+ *       сразу отдаётся в GET /api/users и GET /api/users/{id} с новыми
+ *       значениями. Данные хранятся только в памяти процесса, data.json
+ *       не изменяется, поэтому после перезапуска сервера изменения
+ *       теряются. Пользователь с неизвестным id изменить нельзя.
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - isChosen
+ *               - order
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Идентификатор изменяемого пользователя
+ *                 example: 1
+ *               isChosen:
+ *                 type: boolean
+ *                 description: Отмечен ли пользователь как выбранный
+ *                 example: true
+ *               order:
+ *                 type: integer
+ *                 description: Новый порядковый номер пользователя
+ *                 example: 10
+ *     responses:
+ *       '201':
+ *         description: Пользователь изменён
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - id
+ *                 - isChosen
+ *                 - order
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 isChosen:
+ *                   type: boolean
+ *                   example: true
+ *                 order:
+ *                   type: integer
+ *                   example: 10
  *       '400':
  *         description: id отсутствует или не является положительным целым числом
  *         content:
@@ -165,8 +265,8 @@ router.get('/users', getUsers)
  *                 error:
  *                   type: string
  *                   example: 'Некорректный id: ожидается целое положительное число'
- *       '409':
- *         description: Пользователь с таким id уже существует
+ *       '404':
+ *         description: Пользователь не найден
  *         content:
  *           application/json:
  *             schema:
@@ -176,28 +276,19 @@ router.get('/users', getUsers)
  *               properties:
  *                 error:
  *                   type: string
- *                   example: 'Пользователь с id 1 уже существует'
- *       '500':
- *         description: Не удалось записать файл с пользователями
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               required:
- *                 - error
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Не удалось сохранить пользователя
+ *                   example: Id не найден
  */
-router.post('/users', createUser)
+router.put('/users', changeUser)
 
 /**
  * @swagger
  * /api/users/{id}:
  *   get:
  *     summary: Получить пользователя по ID
- *     description: Ищет пользователя по полю `id`
+ *     description: >
+ *       Ищет пользователя по полю `id`. Пользователь должен существовать
+ *       в наборе данных, сформированном из data.json и дополненного
+ *       запросами POST /api/users и PUT /api/users.
  *     tags:
  *       - Users
  *     parameters:
@@ -217,8 +308,16 @@ router.post('/users', createUser)
  *               type: object
  *               required:
  *                 - id
+ *                 - isChosen
+ *                 - order
  *               properties:
  *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 isChosen:
+ *                   type: boolean
+ *                   example: false
+ *                 order:
  *                   type: integer
  *                   example: 1
  *       '400':

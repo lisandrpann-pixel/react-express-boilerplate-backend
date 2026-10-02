@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { Request, Response } from 'express'
 import rawUsers from './data.json'
 import {
@@ -12,10 +11,10 @@ import {
 } from '../../shared/utils/mapping.utils'
 import { PaginationAndFilterQuery } from '../../shared/types/pagination.types'
 import { UserModel } from '../../entities/users/model'
-import { CreateUserDto, UserDto, UsersDto } from '../../entities/users/dto'
+import { ChangeUserDto, CreateUserDto, UserDto, UsersDto } from '../../entities/users/dto'
 import { ResponseError } from '../../shared/types/error.types'
 
-const usersRaw = rawUsers as UserModel[]
+let usersRaw = rawUsers as UserModel[]
 
 const usersMap = new Map(usersRaw.map((user) => [user.id, user]))
 
@@ -33,24 +32,30 @@ export const getUsers = (
   const userIdFilter = req.query.userIdFilter
 
   if (offset === null) {
-    return res.status(400).json({
+    res.status(400).json({
       error: 'Некорректный offset: ожидается целое положительное число',
     })
+
+    return 
   }
 
   if (limit === null) {
-    return res.status(400).json({
+    res.status(400).json({
       error: 'Некорректный limit: ожидается целое положительное число',
     })
+
+    return 
   }
 
   const idRanges = parseIdFilter(userIdFilter)
 
   if (idRanges === null) {
-    return res.status(400).json({
+    res.status(400).json({
       error:
         'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)',
     })
+
+    return 
   }
 
   const pageSize = Math.min(limit, MAX_LIMIT)
@@ -80,15 +85,19 @@ export const getUserById = (
   const id = Number(req.params.id)
 
   if (!Number.isInteger(id)) {
-    return res
+    res
       .status(400)
       .json({ error: 'Некорректный id: ожидается целое положительное число' })
+
+    return 
   }
 
   const user = usersMap.get(id)
 
   if (!user) {
-    return res.status(404).json({ error: 'Id не найден' })
+    res.status(404).json({ error: 'Id не найден' })
+
+    return 
   }
 
   res.json(user)
@@ -114,10 +123,40 @@ export const createUser = async (
     return
   }
 
-  const newUser: UserModel = { id }
+  const newUser: UserModel = { id, order: id, isChosen: false }
 
   usersRaw.push(newUser)
   usersMap.set(id, newUser)
+
+  res.status(201).json(newUser)
+}
+
+export const changeUser = async (
+  req: Request<Record<string, string>, unknown, ChangeUserDto>,
+  res: Response<UserDto | ResponseError>
+): Promise<void> => {
+  const { id, isChosen, order } = req.body ?? {}
+
+  if (!Number.isInteger(id) || id < 1) {
+    res
+      .status(400)
+      .json({ error: 'Некорректный id: ожидается целое положительное число' })
+
+    return
+  }
+
+  const user = usersMap.get(id)
+
+  if (!user) {
+    res.status(404).json({ error: 'Id не найден' })
+
+    return 
+  }
+
+  const newUser: UserModel = { id, order, isChosen }
+
+  usersMap.set(id, newUser)
+  usersRaw = Array.from(usersMap.values())
 
   res.status(201).json(newUser)
 }

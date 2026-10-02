@@ -13,4 +13,6 @@ export type UsersDto = {
 
 export type UserDto = UserModel
 
-export type CreateUserDto = Pick<UserModel, 'id'>
+export type CreateUserDto = Pick<UserDto, 'id'>
+
+export type ChangeUserDto = UserDto
