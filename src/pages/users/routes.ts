@@ -54,11 +54,11 @@ const router = Router()
  *                   items:
  *                     type: object
  *                     required:
- *                       - _id
+ *                       - id
  *                       - index
  *                       - name
  *                     properties:
- *                       _id:
+ *                       id:
  *                         type: string
  *                         example: 6abd36d863527fa0bfea56b6
  *                       index:
@@ -108,7 +108,7 @@ router.get('/users', getUsers)
  * /users/{id}:
  *   get:
  *     summary: Получить пользователя по ID
- *     description: Ищет пользователя по полю `_id`
+ *     description: Ищет пользователя по полю `id`
  *     tags:
  *       - Users
  *     parameters:
@@ -127,11 +127,11 @@ router.get('/users', getUsers)
  *             schema:
  *               type: object
  *               required:
- *                 - _id
+ *                 - id
  *                 - index
  *                 - name
  *               properties:
- *                 _id:
+ *                 id:
  *                   type: string
  *                   example: 6abd36d863527fa0bfea56b6
  *                 index:

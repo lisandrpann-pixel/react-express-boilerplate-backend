@@ -12,7 +12,7 @@ import { ResponseError } from '../../shared/types/error.types'
 
 const usersRaw = rawUsers as UserModel[]
 
-const usersMap = new Map(usersRaw.map((user) => [user._id, user]))
+const usersMap = new Map(usersRaw.map((user) => [user.id, user]))
 
 export const getUsers = (
   req: Request<
@@ -42,7 +42,7 @@ export const getUsers = (
   const pageSize = Math.min(limit, MAX_LIMIT)
 
   const usersList = userIdFilter
-    ? usersRaw.filter((user) => user._id.includes(userIdFilter))
+    ? usersRaw.filter((user) => user.id.includes(userIdFilter))
     : usersRaw
 
   const data = usersList.slice(offset, offset + pageSize)

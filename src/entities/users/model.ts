@@ -1,5 +1,4 @@
 export type UserModel = {
-  _id: string
-  index: number
+  id: string
   name: string
 }
