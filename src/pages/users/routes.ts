@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { getUserById, getUsers } from './handlers'
+import { createUser, getUserById, getUsers } from './handlers'
 
 const router = Router()
 
@@ -112,6 +112,85 @@ const router = Router()
  *                     - 'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)'
  */
 router.get('/users', getUsers)
+
+/**
+ * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Добавить пользователя
+ *     description: >
+ *       Добавляет пользователя в data.json, тот же файл, из которого
+ *       читаются пользователи для GET /api/users. Если пользователь
+ *       с таким id уже существует, возвращается 409.
+ *       Запись атомарная: сначала во временный файл, затем переименование,
+ *       поэтому повреждённый файл не остаётся при сбое записи.
+ *     tags:
+ *       - Users
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Идентификатор пользователя, должен быть свободен
+ *                 example: 1000001
+ *     responses:
+ *       '201':
+ *         description: Пользователь создан
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - id
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   example: 1000001
+ *       '400':
+ *         description: id отсутствует или не является положительным целым числом
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: 'Некорректный id: ожидается целое положительное число'
+ *       '409':
+ *         description: Пользователь с таким id уже существует
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: 'Пользователь с id 1 уже существует'
+ *       '500':
+ *         description: Не удалось записать файл с пользователями
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Не удалось сохранить пользователя
+ */
+router.post('/users', createUser)
 
 /**
  * @swagger

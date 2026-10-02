@@ -12,3 +12,5 @@ export type UsersDto = {
 }
 
 export type UserDto = UserModel
+
+export type CreateUserDto = Pick<UserModel, 'id'>
