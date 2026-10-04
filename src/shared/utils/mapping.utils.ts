@@ -18,14 +18,14 @@ export const parseNonNegativeInt = (
   return parsed
 }
 
-export const parseIdFilter = (userIdFilter?: string): IdRange[] | null => {
-  if (userIdFilter === undefined || userIdFilter === '') {
+export const parseIdFilter = (itemIdFilter?: string): IdRange[] | null => {
+  if (itemIdFilter === undefined || itemIdFilter === '') {
     return []
   }
 
   const ranges: IdRange[] = []
 
-  const idsStrArr = userIdFilter.split(',')
+  const idsStrArr = itemIdFilter.split(',')
 
   for (const idStr of idsStrArr) {
     const range = RANGE_PATTERN.exec(idStr)

@@ -1,15 +1,15 @@
 import { Router } from 'express'
-import { changeUser, createUser, getUserById, getUsers } from './handlers'
+import { changeItem, createItem, getItemById, getItems } from './handlers'
 
 const router = Router()
 
 /**
  * @swagger
- * /api/users:
+ * /api/items:
  *   get:
  *     summary: Получить пользователей
  *     description: >
- *       Возвращает страницу пользователей с учётом фильтра по id.
+ *       Возвращает страницу пользователей с учётом фильтра по id и isChosen.
  *       По умолчанию отдаются первые 20. Если limit больше 100, значение
  *       ограничивается до 100. Фильтрация применяется до пагинации,
  *       поэтому offset отсчитывается уже по отфильтрованной выборке,
@@ -17,7 +17,7 @@ const router = Router()
  *       В data.json хранится 1000000 пользователей с id от 1 до 1000000,
  *       у всех isChosen равно false, а order совпадает с id.
  *     tags:
- *       - Users
+ *       - Items
  *     parameters:
  *       - name: offset
  *         in: query
@@ -36,7 +36,7 @@ const router = Router()
  *           minimum: 0
  *           maximum: 100
  *           default: 20
- *       - name: userIdFilter
+ *       - name: itemIdFilter
  *         in: query
  *         required: false
  *         description: >
@@ -50,6 +50,17 @@ const router = Router()
  *         schema:
  *           type: string
  *           example: 1-12,42
+ *       - name: isChosenFilter
+ *         in: query
+ *         required: false
+ *         description: >
+ *           Признак, выбран ли пользователь или нет. Если isChosen
+ *           true, возвращаются пользователи с isChosen=true,
+ *           если false, возвращаются с isChosen=false, иначе
+ *           возвращаются все пользователи. Ответ с учетом пагинации.
+ *         schema:
+ *           type: boolean
+ *           example: true
  *     responses:
  *       '200':
  *         description: Страница пользователей
@@ -102,13 +113,17 @@ const router = Router()
  *                     hasMore:
  *                       type: boolean
  *                       example: true
- *                     userIdFilter:
+ *                     itemIdFilter:
  *                       type: string
  *                       description: Возвращается только если фильтр задан
  *                       example: 1-12,42
+ *                     isChosenFilter:
+ *                       type: boolean
+ *                       description: Возвращается только если фильтр задан
+ *                       example: true
  *       '400':
  *         description: >
- *           Некорректный offset, limit или userIdFilter.
+ *           Некорректный offset, limit или itemIdFilter.
  *         content:
  *           application/json:
  *             schema:
@@ -123,23 +138,23 @@ const router = Router()
  *                     - 'Некорректный limit: ожидается целое положительное число'
  *                     - 'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)'
  */
-router.get('/users', getUsers)
+router.get('/items', getItems)
 
 /**
  * @swagger
- * /api/users:
+ * /api/items:
  *   post:
  *     summary: Добавить пользователя
  *     description: >
  *       Добавляет пользователя в тот же набор данных, из которого
- *       читаются пользователи для GET /api/users. Новый пользователь
+ *       читаются пользователи для GET /api/items. Новый пользователь
  *       получает isChosen равный false и order равный своему id.
  *       Данные хранятся только в памяти процесса, data.json не
  *       изменяется, поэтому после перезапуска сервера созданные
  *       пользователи исчезают. Если пользователь с таким id уже
  *       существует, возвращается 400.
  *     tags:
- *       - Users
+ *       - Items
  *     requestBody:
  *       required: true
  *       content:
@@ -192,22 +207,22 @@ router.get('/users', getUsers)
  *                     - 'Некорректный id: ожидается целое положительное число'
  *                     - 'Пользователь с id 1 уже существует'
  */
-router.post('/users', createUser)
+router.post('/items', createItem)
 
 /**
  * @swagger
- * /api/users:
+ * /api/items:
  *   put:
  *     summary: Изменить пользователя
  *     description: >
  *       Полностью заменяет пользователя с указанным id: в памяти
  *       обновляются поля isChosen и order, после чего пользователь
- *       сразу отдаётся в GET /api/users и GET /api/users/{id} с новыми
+ *       сразу отдаётся в GET /api/items и GET /api/items/{id} с новыми
  *       значениями. Данные хранятся только в памяти процесса, data.json
  *       не изменяется, поэтому после перезапуска сервера изменения
  *       теряются. Пользователь с неизвестным id изменить нельзя.
  *     tags:
- *       - Users
+ *       - Items
  *     requestBody:
  *       required: true
  *       content:
@@ -278,19 +293,19 @@ router.post('/users', createUser)
  *                   type: string
  *                   example: Id не найден
  */
-router.put('/users', changeUser)
+router.put('/items', changeItem)
 
 /**
  * @swagger
- * /api/users/{id}:
+ * /api/items/{id}:
  *   get:
  *     summary: Получить пользователя по ID
  *     description: >
  *       Ищет пользователя по полю `id`. Пользователь должен существовать
  *       в наборе данных, сформированном из data.json и дополненного
- *       запросами POST /api/users и PUT /api/users.
+ *       запросами POST /api/items и PUT /api/items.
  *     tags:
- *       - Users
+ *       - Items
  *     parameters:
  *       - name: id
  *         in: path
@@ -345,6 +360,6 @@ router.put('/users', changeUser)
  *                   type: string
  *                   example: Id не найден
  */
-router.get('/users/:id', getUserById)
+router.get('/items/:id', getItemById)
 
 export default router

@@ -6,15 +6,15 @@ src/
 │   ├── index.ts              # точка входа
 │   └── config.ts             # настройки (порт, env, CORS и т.п.)
 ├── pages/                    # роуты (контроллеры)
-│   ├── users/
-│   │   ├── routes.ts         # express Router для /api/users
-│   │   └── handlers.ts       # обработчики (getUsers и т.д.)
+│   ├── items/
+│   │   ├── routes.ts         # express Router для /api/items
+│   │   └── handlers.ts       # обработчики (getItems и т.д.)
 ├── features/
 │   └── filters/
 │       ├── index.ts
 │       └── filters.ts        # сценарий фильтрации
 ├── entities/
-│   └── user/
+│   └── item/
 │       ├── model.ts          # ORM-модель (TypeORM/Prisma/Mongoose)
 │       ├── dto.ts            # DTO для заказа
 │       └── utils.ts          # валидация, форматирование

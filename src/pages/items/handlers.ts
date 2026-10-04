@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import rawUsers from './data.json'
+import rawItems from './data.json'
 import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
@@ -10,26 +10,30 @@ import {
   parseNonNegativeInt,
 } from '../../shared/utils/mapping.utils'
 import { PaginationAndFilterQuery } from '../../shared/types/pagination.types'
-import { UserModel } from '../../entities/users/model'
-import { ChangeUserDto, CreateUserDto, UserDto, UsersDto } from '../../entities/users/dto'
+import { ItemModel } from '../../entities/items/model'
+import { ChangeItemDto, CreateItemDto, ItemDto, ItemsDto } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
 
-let usersRaw = rawUsers as UserModel[]
+let itemsRaw = rawItems as ItemModel[]
 
-const usersMap = new Map(usersRaw.map((user) => [user.id, user]))
+const itemsMap = new Map(itemsRaw.map((item) => [item.id, item]))
 
-export const getUsers = (
+export const getItems = (
   req: Request<
     Record<string, string>,
     unknown,
     unknown,
     PaginationAndFilterQuery
   >,
-  res: Response<UsersDto | ResponseError>
+  res: Response<ItemsDto | ResponseError>
 ) => {
-  const offset = parseNonNegativeInt(req.query.offset, 0)
-  const limit = parseNonNegativeInt(req.query.limit, DEFAULT_LIMIT)
-  const userIdFilter = req.query.userIdFilter
+  const query = req.query
+
+  const offset = parseNonNegativeInt(query.offset, 0)
+  const limit = parseNonNegativeInt(query.limit, DEFAULT_LIMIT)
+  const itemIdFilter = query.itemIdFilter
+  const hasChosenFilter = query.isChosenFilter !== undefined && query.isChosenFilter !== ''
+  const wantChosen = hasChosenFilter && (query.isChosenFilter === 'true' || query.isChosenFilter === '1')
 
   if (offset === null) {
     res.status(400).json({
@@ -47,7 +51,7 @@ export const getUsers = (
     return 
   }
 
-  const idRanges = parseIdFilter(userIdFilter)
+  const idRanges = parseIdFilter(itemIdFilter)
 
   if (idRanges === null) {
     res.status(400).json({
@@ -60,27 +64,34 @@ export const getUsers = (
 
   const pageSize = Math.min(limit, MAX_LIMIT)
 
-  const usersList = idRanges.length
-    ? usersRaw.filter((user) => matchesIdFilter(idRanges, user.id))
-    : usersRaw
+  let itemsFiltered = itemsRaw
 
-  const data = usersList.slice(offset, offset + pageSize)
+  if (idRanges.length) {
+    itemsFiltered = itemsFiltered.filter(item => matchesIdFilter(idRanges, item.id))
+  }
+    
+  if (hasChosenFilter) {
+    itemsFiltered = itemsFiltered.filter(item => item.isChosen === wantChosen)
+  }
+
+  const data = itemsFiltered.slice(offset, offset + pageSize)
 
   res.json({
     data,
     pagination: {
       offset,
       limit: pageSize,
-      total: usersList.length,
-      hasMore: offset + data.length < usersList.length,
-      ...(userIdFilter ? { userIdFilter } : {}),
+      total: itemsFiltered.length,
+      hasMore: offset + data.length < itemsFiltered.length,
+      ...(itemIdFilter ? { itemIdFilter } : {}),
+      ...(hasChosenFilter ? { isChosenFilter: wantChosen } : {}),
     },
   })
 }
 
-export const getUserById = (
+export const getItemById = (
   req: Request<{ id: string }>,
-  res: Response<UserDto | ResponseError>
+  res: Response<ItemDto | ResponseError>
 ) => {
   const id = Number(req.params.id)
 
@@ -92,20 +103,20 @@ export const getUserById = (
     return 
   }
 
-  const user = usersMap.get(id)
+  const item = itemsMap.get(id)
 
-  if (!user) {
+  if (!item) {
     res.status(404).json({ error: 'Id не найден' })
 
     return 
   }
 
-  res.json(user)
+  res.json(item)
 }
 
-export const createUser = async (
-  req: Request<Record<string, string>, unknown, CreateUserDto>,
-  res: Response<UserDto | ResponseError>
+export const createItem = async (
+  req: Request<Record<string, string>, unknown, CreateItemDto>,
+  res: Response<ItemDto | ResponseError>
 ): Promise<void> => {
   const { id } = req.body ?? {}
 
@@ -117,23 +128,23 @@ export const createUser = async (
     return
   }
 
-  if (usersMap.has(id)) {
+  if (itemsMap.has(id)) {
     res.status(400).json({ error: `Пользователь с id ${id} уже существует` })
 
     return
   }
 
-  const newUser: UserModel = { id, order: id, isChosen: false }
+  const newItem: ItemModel = { id, order: id, isChosen: false }
 
-  usersRaw.push(newUser)
-  usersMap.set(id, newUser)
+  itemsRaw.push(newItem)
+  itemsMap.set(id, newItem)
 
-  res.status(201).json(newUser)
+  res.status(201).json(newItem)
 }
 
-export const changeUser = async (
-  req: Request<Record<string, string>, unknown, ChangeUserDto>,
-  res: Response<UserDto | ResponseError>
+export const changeItem = async (
+  req: Request<Record<string, string>, unknown, ChangeItemDto>,
+  res: Response<ItemDto | ResponseError>
 ): Promise<void> => {
   const { id, isChosen, order } = req.body ?? {}
 
@@ -145,18 +156,18 @@ export const changeUser = async (
     return
   }
 
-  const user = usersMap.get(id)
+  const item = itemsMap.get(id)
 
-  if (!user) {
+  if (!item) {
     res.status(404).json({ error: 'Id не найден' })
 
     return 
   }
 
-  const newUser: UserModel = { id, order, isChosen }
+  const newItem: ItemModel = { id, order, isChosen }
 
-  usersMap.set(id, newUser)
-  usersRaw = Array.from(usersMap.values())
+  itemsMap.set(id, newItem)
+  itemsRaw = Array.from(itemsMap.values())
 
-  res.status(201).json(newUser)
+  res.status(201).json(newItem)
 }

@@ -1,7 +1,8 @@
 export type PaginationAndFilterQuery = {
   offset?: string
   limit?: string
-  userIdFilter?: string
+  itemIdFilter?: string
+  isChosenFilter?: string
 }
 
 export type IdRange = {
