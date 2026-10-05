@@ -3,6 +3,7 @@ import { Server } from 'node:http'
 import swaggerUi from 'swagger-ui-express'
 
 import healthRouter from '../pages/health/routes'
+import { initItemsStore } from '../pages/items/handlers'
 import itemsRouter from '../pages/items/routes'
 import swaggerSpec from '../swagger'
 import {
@@ -41,9 +42,32 @@ app.use(notFoundHandler)
 
 app.use(errorHandler)
 
-const server: Server = app.listen(PORT, () => {
+const server: Server = app.listen(PORT)
+
+server.on('error', (error) => {
+  logger.fatal(
+    { err: error, port: PORT },
+    'Не удалось занять порт, сервер не запущен'
+  )
+
+  exitWith(1)
+})
+
+/**
+ * Наполнение идёт после listen, но до того, как event loop сможет взять
+ * первый запрос: пока цикл не достроит Map, ни один обработчик не
+ * выполнится, поэтому запросы не увидят пустые данные. Событие listening
+ * придёт на следующем тике, то есть уже после наполнения.
+ */
+const itemsCount = initItemsStore()
+
+server.once('listening', () => {
   logger.info(
-    { port: PORT, swagger: `http://localhost:${PORT}/api-docs` },
+    {
+      port: PORT,
+      swagger: `http://localhost:${PORT}/api-docs`,
+      items: itemsCount,
+    },
     'Сервер запущен'
   )
 })
@@ -73,6 +97,18 @@ const shutdown = (signal: string, exitCode: number): void => {
   beginShutdown()
 
   logger.info({ signal }, 'Получен сигнал остановки')
+
+  /**
+   * Порт мог не заняться: если bind упал, закрывать нечего, и close()
+   * бросил бы ERR_SERVER_NOT_RUNNING поверх исходной ошибки
+   */
+  if (!server.listening) {
+    logger.info('Сервер не слушал порт, сбрасываю логи')
+
+    flushLogsAndExit(exitCode)
+
+    return
+  }
 
   /**
    * Страховка: если flush не вызовет колбэк, процесс обязан выйти,
@@ -110,19 +146,7 @@ const shutdown = (signal: string, exitCode: number): void => {
 
     logger.info('Соединения закрыты, сбрасываю логи')
 
-    try {
-      logger.flush((flushError) => {
-        if (flushError !== undefined) {
-          logger.error({ err: flushError }, 'Не удалось сбросить логи')
-        }
-
-        exitWith(exitCode)
-      })
-    } catch (error) {
-      logger.error({ err: error }, 'Исключение при сбросе логов')
-
-      exitWith(exitCode)
-    }
+    flushLogsAndExit(exitCode)
   })
 
   /**
@@ -130,6 +154,28 @@ const shutdown = (signal: string, exitCode: number): void => {
    * активные клиенты получат ответ и освободят соединение сами
    */
   server.closeIdleConnections()
+}
+
+/**
+ * Сброс буфера логов перед выходом. При transport записи идут через worker
+ * и sonic-boom, поэтому без flush хвост логов, включая запись о самой
+ * остановке, просто потеряется. Обёртка в try/catch нужна на случай, если
+ * flush бросит синхронно: зависнуть здесь нельзя, процесс обязан выйти
+ */
+const flushLogsAndExit = (exitCode: number): void => {
+  try {
+    logger.flush((flushError) => {
+      if (flushError !== undefined) {
+        logger.error({ err: flushError }, 'Не удалось сбросить логи')
+      }
+
+      exitWith(exitCode)
+    })
+  } catch (error) {
+    logger.error({ err: error }, 'Исключение при сбросе логов')
+
+    exitWith(exitCode)
+  }
 }
 
 const exitWith = (code: number): void => {

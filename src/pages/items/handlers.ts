@@ -1,5 +1,4 @@
 import { Request, Response } from 'express'
-import MOCK_DATA from './data.json'
 import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
@@ -11,10 +10,27 @@ import {
 } from '../../shared/utils/mapping.utils'
 import { PaginationAndFilterQuery } from '../../shared/types/pagination.types'
 import { ItemModel } from '../../entities/items/model'
-import { ChangeItemDto, CreateItemDto, ItemDto, ItemsDto } from '../../entities/items/dto'
+import {
+  ChangeItemDto,
+  CreateItemDto,
+  ItemDto,
+  ItemsDto,
+} from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
 
-const itemsMap = new Map((MOCK_DATA as ItemModel[]).map((item) => [item.id, item]))
+const itemsMap = new Map<number, ItemModel>()
+
+const TOTAL_ITEMS = 1_000_000
+
+export const initItemsStore = (): number => {
+  if (itemsMap.size > 0) return itemsMap.size
+
+  for (let id = 1; id <= TOTAL_ITEMS; id += 1) {
+    itemsMap.set(id, { id, order: id, isChosen: false })
+  }
+
+  return itemsMap.size
+}
 
 export const getItems = (
   req: Request<
@@ -30,15 +46,18 @@ export const getItems = (
   const offset = parseNonNegativeInt(query.offset, 0)
   const limit = parseNonNegativeInt(query.limit, DEFAULT_LIMIT)
   const itemIdFilter = query.itemIdFilter
-  const hasChosenFilter = query.isChosenFilter !== undefined && query.isChosenFilter !== ''
-  const wantChosen = hasChosenFilter && (query.isChosenFilter === 'true' || query.isChosenFilter === '1')
+  const hasChosenFilter =
+    query.isChosenFilter !== undefined && query.isChosenFilter !== ''
+  const wantChosen =
+    hasChosenFilter &&
+    (query.isChosenFilter === 'true' || query.isChosenFilter === '1')
 
   if (offset === null) {
     res.status(400).json({
       error: 'Некорректный offset: ожидается целое положительное число',
     })
 
-    return 
+    return
   }
 
   if (limit === null) {
@@ -46,7 +65,7 @@ export const getItems = (
       error: 'Некорректный limit: ожидается целое положительное число',
     })
 
-    return 
+    return
   }
 
   const idRanges = parseIdFilter(itemIdFilter)
@@ -57,7 +76,7 @@ export const getItems = (
         'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)',
     })
 
-    return 
+    return
   }
 
   const pageSize = Math.min(limit, MAX_LIMIT)
@@ -65,11 +84,13 @@ export const getItems = (
   let itemsFiltered = Array.from(itemsMap.values())
 
   if (idRanges.length) {
-    itemsFiltered = itemsFiltered.filter(item => matchesIdFilter(idRanges, item.id))
+    itemsFiltered = itemsFiltered.filter((item) =>
+      matchesIdFilter(idRanges, item.id)
+    )
   }
-    
+
   if (hasChosenFilter) {
-    itemsFiltered = itemsFiltered.filter(item => item.isChosen === wantChosen)
+    itemsFiltered = itemsFiltered.filter((item) => item.isChosen === wantChosen)
   }
 
   const data = itemsFiltered.slice(offset, offset + pageSize)
@@ -98,7 +119,7 @@ export const getItemById = (
       .status(400)
       .json({ error: 'Некорректный id: ожидается целое положительное число' })
 
-    return 
+    return
   }
 
   const item = itemsMap.get(id)
@@ -106,7 +127,7 @@ export const getItemById = (
   if (!item) {
     res.status(404).json({ error: 'Id не найден' })
 
-    return 
+    return
   }
 
   res.json(item)
@@ -154,11 +175,10 @@ export const changeItem = async (
   }
 
   if (typeof isChosen !== 'boolean' || !Number.isInteger(order)) {
-    res
-      .status(400)
-      .json({
-        error: 'Некорректные данные: isChosen должен быть boolean, order — целым числом',
-      })
+    res.status(400).json({
+      error:
+        'Некорректные данные: isChosen должен быть boolean, order — целым числом',
+    })
 
     return
   }
@@ -168,7 +188,7 @@ export const changeItem = async (
   if (!item) {
     res.status(404).json({ error: 'Id не найден' })
 
-    return 
+    return
   }
 
   const newItem: ItemModel = { id, order, isChosen }
