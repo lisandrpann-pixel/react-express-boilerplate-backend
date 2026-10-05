@@ -7,14 +7,14 @@ const router = Router()
  * @swagger
  * /api/items:
  *   get:
- *     summary: Получить пользователей
+ *     summary: Получить элемены
  *     description: >
- *       Возвращает страницу пользователей с учётом фильтра по id и isChosen.
+ *       Возвращает страницу элементов с учётом фильтра по id и isChosen.
  *       По умолчанию отдаются первые 20. Если limit больше 100, значение
  *       ограничивается до 100. Фильтрация применяется до пагинации,
  *       поэтому offset отсчитывается уже по отфильтрованной выборке,
- *       а total показывает количество пользователей после фильтрации.
- *       В data.json хранится 1000000 пользователей с id от 1 до 1000000,
+ *       а total показывает количество элементов после фильтрации.
+ *       В data.json хранится 1000000 элементов с id от 1 до 1000000,
  *       у всех isChosen равно false, а order совпадает с id.
  *     tags:
  *       - Items
@@ -22,7 +22,7 @@ const router = Router()
  *       - name: offset
  *         in: query
  *         required: false
- *         description: Количество пропускаемых пользователей
+ *         description: Количество пропускаемых элементов
  *         schema:
  *           type: integer
  *           minimum: 0
@@ -30,7 +30,7 @@ const router = Router()
  *       - name: limit
  *         in: query
  *         required: false
- *         description: Максимальное количество пользователей в ответе
+ *         description: Максимальное количество элементов в ответе
  *         schema:
  *           type: integer
  *           minimum: 0
@@ -54,16 +54,16 @@ const router = Router()
  *         in: query
  *         required: false
  *         description: >
- *           Признак, выбран ли пользователь или нет. Если isChosen
- *           true, возвращаются пользователи с isChosen=true,
+ *           Признак, выбран ли элемент или нет. Если isChosen
+ *           true, возвращаются элементы с isChosen=true,
  *           если false, возвращаются с isChosen=false, иначе
- *           возвращаются все пользователи. Ответ с учетом пагинации.
+ *           возвращаются все элементы. Ответ с учетом пагинации.
  *         schema:
  *           type: boolean
  *           example: true
  *     responses:
  *       '200':
- *         description: Страница пользователей
+ *         description: Страница элементов
  *         content:
  *           application/json:
  *             schema:
@@ -86,11 +86,11 @@ const router = Router()
  *                         example: 1
  *                       isChosen:
  *                         type: boolean
- *                         description: Отмечен ли пользователь как выбранный
+ *                         description: Отмечен ли элемент как выбранный
  *                         example: false
  *                       order:
  *                         type: integer
- *                         description: Порядковый номер пользователя
+ *                         description: Порядковый номер элемента
  *                         example: 1
  *                 pagination:
  *                   type: object
@@ -108,7 +108,7 @@ const router = Router()
  *                       example: 20
  *                     total:
  *                       type: integer
- *                       description: Количество пользователей после фильтрации
+ *                       description: Количество элементов после фильтрации
  *                       example: 12
  *                     hasMore:
  *                       type: boolean
@@ -144,14 +144,14 @@ router.get('/items', getItems)
  * @swagger
  * /api/items:
  *   post:
- *     summary: Добавить пользователя
+ *     summary: Добавить элемент
  *     description: >
- *       Добавляет пользователя в тот же набор данных, из которого
- *       читаются пользователи для GET /api/items. Новый пользователь
+ *       Добавляет элемент в тот же набор данных, из которого
+ *       читаются элементы для GET /api/items. Новый элемент
  *       получает isChosen равный false и order равный своему id.
  *       Данные хранятся только в памяти процесса, data.json не
  *       изменяется, поэтому после перезапуска сервера созданные
- *       пользователи исчезают. Если пользователь с таким id уже
+ *       элементы исчезают. Если элемент с таким id уже
  *       существует, возвращается 400.
  *     tags:
  *       - Items
@@ -167,11 +167,11 @@ router.get('/items', getItems)
  *               id:
  *                 type: integer
  *                 minimum: 1
- *                 description: Идентификатор пользователя, должен быть свободен
+ *                 description: Идентификатор элемента, должен быть свободен
  *                 example: 1000001
  *     responses:
  *       '201':
- *         description: Пользователь создан
+ *         description: Элемент создан
  *         content:
  *           application/json:
  *             schema:
@@ -205,7 +205,19 @@ router.get('/items', getItems)
  *                   type: string
  *                   examples:
  *                     - 'Некорректный id: ожидается целое положительное число'
- *                     - 'Пользователь с id 1 уже существует'
+ *                     - 'Элемент с id 1 уже существует'
+ *       '413':
+ *         description: Тело запроса превышает допустимый размер
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: 'Тело запроса превышает допустимый размер'
  */
 router.post('/items', createItem)
 
@@ -213,14 +225,14 @@ router.post('/items', createItem)
  * @swagger
  * /api/items:
  *   put:
- *     summary: Изменить пользователя
+ *     summary: Изменить элемент
  *     description: >
- *       Полностью заменяет пользователя с указанным id: в памяти
- *       обновляются поля isChosen и order, после чего пользователь
+ *       Полностью заменяет элемент с указанным id: в памяти
+ *       обновляются поля isChosen и order, после чего элемент
  *       сразу отдаётся в GET /api/items и GET /api/items/{id} с новыми
  *       значениями. Данные хранятся только в памяти процесса, data.json
  *       не изменяется, поэтому после перезапуска сервера изменения
- *       теряются. Пользователь с неизвестным id изменить нельзя.
+ *       теряются. Элемент с неизвестным id изменить нельзя.
  *     tags:
  *       - Items
  *     requestBody:
@@ -237,19 +249,19 @@ router.post('/items', createItem)
  *               id:
  *                 type: integer
  *                 minimum: 1
- *                 description: Идентификатор изменяемого пользователя
+ *                 description: Идентификатор изменяемого элемента
  *                 example: 1
  *               isChosen:
  *                 type: boolean
- *                 description: Отмечен ли пользователь как выбранный
+ *                 description: Отмечен ли элемент как выбранный
  *                 example: true
  *               order:
  *                 type: integer
- *                 description: Новый порядковый номер пользователя
+ *                 description: Новый порядковый номер элемента
  *                 example: 10
  *     responses:
- *       '201':
- *         description: Пользователь изменён
+ *       '200':
+ *         description: Элемент изменён
  *         content:
  *           application/json:
  *             schema:
@@ -269,7 +281,9 @@ router.post('/items', createItem)
  *                   type: integer
  *                   example: 10
  *       '400':
- *         description: id отсутствует или не является положительным целым числом
+ *         description: >
+ *           Некорректный id, либо isChosen не boolean, либо order не целое
+ *           число
  *         content:
  *           application/json:
  *             schema:
@@ -279,9 +293,11 @@ router.post('/items', createItem)
  *               properties:
  *                 error:
  *                   type: string
- *                   example: 'Некорректный id: ожидается целое положительное число'
+ *                   examples:
+ *                     - 'Некорректный id: ожидается целое положительное число'
+ *                     - 'Некорректные данные: isChosen должен быть boolean, order — целым числом'
  *       '404':
- *         description: Пользователь не найден
+ *         description: Элемент не найден
  *         content:
  *           application/json:
  *             schema:
@@ -292,6 +308,18 @@ router.post('/items', createItem)
  *                 error:
  *                   type: string
  *                   example: Id не найден
+ *       '413':
+ *         description: Тело запроса превышает допустимый размер
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - error
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: 'Тело запроса превышает допустимый размер'
  */
 router.put('/items', changeItem)
 
@@ -299,9 +327,9 @@ router.put('/items', changeItem)
  * @swagger
  * /api/items/{id}:
  *   get:
- *     summary: Получить пользователя по ID
+ *     summary: Получить элемент по ID
  *     description: >
- *       Ищет пользователя по полю `id`. Пользователь должен существовать
+ *       Ищет элемент по полю `id`. Элемент должен существовать
  *       в наборе данных, сформированном из data.json и дополненного
  *       запросами POST /api/items и PUT /api/items.
  *     tags:
@@ -310,13 +338,13 @@ router.put('/items', changeItem)
  *       - name: id
  *         in: path
  *         required: true
- *         description: Идентификатор пользователя
+ *         description: Идентификатор элемента
  *         schema:
  *           type: integer
  *           example: 1
  *     responses:
  *       '200':
- *         description: Найденный пользователь
+ *         description: Найденный элемент
  *         content:
  *           application/json:
  *             schema:
@@ -348,7 +376,7 @@ router.put('/items', changeItem)
  *                   type: string
  *                   example: 'Некорректный id: ожидается целое положительное число'
  *       '404':
- *         description: Пользователь не найден
+ *         description: Элемент не найден
  *         content:
  *           application/json:
  *             schema:

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import rawItems from './data.json'
+import MOCK_DATA from './data.json'
 import {
   DEFAULT_LIMIT,
   MAX_LIMIT,
@@ -14,9 +14,7 @@ import { ItemModel } from '../../entities/items/model'
 import { ChangeItemDto, CreateItemDto, ItemDto, ItemsDto } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
 
-let itemsRaw = rawItems as ItemModel[]
-
-const itemsMap = new Map(itemsRaw.map((item) => [item.id, item]))
+const itemsMap = new Map((MOCK_DATA as ItemModel[]).map((item) => [item.id, item]))
 
 export const getItems = (
   req: Request<
@@ -64,7 +62,7 @@ export const getItems = (
 
   const pageSize = Math.min(limit, MAX_LIMIT)
 
-  let itemsFiltered = itemsRaw
+  let itemsFiltered = Array.from(itemsMap.values())
 
   if (idRanges.length) {
     itemsFiltered = itemsFiltered.filter(item => matchesIdFilter(idRanges, item.id))
@@ -129,14 +127,13 @@ export const createItem = async (
   }
 
   if (itemsMap.has(id)) {
-    res.status(400).json({ error: `Пользователь с id ${id} уже существует` })
+    res.status(400).json({ error: `Элемент с id ${id} уже существует` })
 
     return
   }
 
   const newItem: ItemModel = { id, order: id, isChosen: false }
 
-  itemsRaw.push(newItem)
   itemsMap.set(id, newItem)
 
   res.status(201).json(newItem)
@@ -156,6 +153,16 @@ export const changeItem = async (
     return
   }
 
+  if (typeof isChosen !== 'boolean' || !Number.isInteger(order)) {
+    res
+      .status(400)
+      .json({
+        error: 'Некорректные данные: isChosen должен быть boolean, order — целым числом',
+      })
+
+    return
+  }
+
   const item = itemsMap.get(id)
 
   if (!item) {
@@ -167,7 +174,6 @@ export const changeItem = async (
   const newItem: ItemModel = { id, order, isChosen }
 
   itemsMap.set(id, newItem)
-  itemsRaw = Array.from(itemsMap.values())
 
-  res.status(201).json(newItem)
+  res.status(200).json(newItem)
 }

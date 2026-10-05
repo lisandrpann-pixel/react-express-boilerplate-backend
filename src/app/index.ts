@@ -3,11 +3,22 @@ import swaggerUi from 'swagger-ui-express'
 
 import itemsRouter from '../pages/items/routes'
 import swaggerSpec from '../swagger'
+import {
+  errorHandler,
+  notFoundHandler,
+} from '../shared/middleware/error.middleware'
+import {
+  exposeRequestId,
+  requestLogger,
+} from '../shared/middleware/request-logger.middleware'
+import { logger } from '../shared/logger/logger'
 import { LIMITTER, PORT_DEFAULT } from './config'
 
 const app = express()
 const PORT = process.env.PORT || PORT_DEFAULT
 
+app.use(requestLogger)
+app.use(exposeRequestId)
 app.use(express.json())
 
 app.use(LIMITTER)
@@ -18,7 +29,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 app.use('/api', itemsRouter)
 
+app.use(notFoundHandler)
+
+app.use(errorHandler)
+
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`)
-  console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`)
+  logger.info(
+    { port: PORT, swagger: `http://localhost:${PORT}/api-docs` },
+    'Сервер запущен'
+  )
 })
