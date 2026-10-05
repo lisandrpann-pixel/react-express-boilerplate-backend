@@ -1,21 +1,19 @@
-import { randomUUID } from 'node:crypto'
-
 import { RequestHandler } from 'express'
 import pinoHttp from 'pino-http'
 
 import { logger } from '../logger/logger'
+import { resolveRequestId } from '../utils/request.utils'
 
 /**
  * Логируем не каждый запрос, а только проблемные.
  *
- * Важно: autoLogging.ignore здесь использовать нельзя — если он вернёт true,
- * pino-http не подпишется на finish и не запишет ВООБЩЕ НИЧЕГО, включая 5xx.
- * Поэтому фильтр сделан через customLogLevel: у него есть res, и 'silent'
- * гасит только конкретную запись.
+ * genReqId берёт заголовок от gateway, если он валидный uuid: так id,
+ * который видел клиент, совпадает с id в логах. Иначе uuid невалиден —
+ * генерируем свой.
  */
 export const requestLogger: RequestHandler = pinoHttp({
   logger,
-  genReqId: () => randomUUID(),
+  genReqId: resolveRequestId,
   customLogLevel: (_req, res, error) => {
     if (error !== undefined || res.statusCode >= 500) return 'error'
     if (res.statusCode >= 400) return 'warn'
