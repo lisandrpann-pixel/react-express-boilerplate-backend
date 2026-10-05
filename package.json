@@ -14,7 +14,7 @@
   "description": "",
   "dependencies": {
     "express": "^5.2.1",
-    "express-slow-down": "^3.1.1",
+    "lru-cache": "^11.5.3",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "pino-roll": "^4.0.0",

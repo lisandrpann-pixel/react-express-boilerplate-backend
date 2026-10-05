@@ -6,6 +6,7 @@ import healthRouter from '../pages/health/routes'
 import { initItemsStore } from '../pages/items/handlers'
 import itemsRouter from '../pages/items/routes'
 import swaggerSpec from '../swagger'
+import { admission } from '../shared/middleware/admission.middleware'
 import {
   errorHandler,
   notFoundHandler,
@@ -16,7 +17,7 @@ import {
 } from '../shared/middleware/requestLogger.middleware'
 import { logger } from '../shared/logger/logger'
 import { beginShutdown } from '../shared/state/lifecycle'
-import { LIMITTER, PORT_DEFAULT, SHUTDOWN_TIMEOUT_MS } from './config'
+import { PORT_DEFAULT, SHUTDOWN_TIMEOUT_MS } from './config'
 
 const app = express()
 
@@ -28,9 +29,9 @@ app.use(exposeRequestId)
 
 app.use(healthRouter)
 
-app.use(express.json())
+app.use(admission)
 
-app.use(LIMITTER)
+app.use(express.json())
 
 app.get('/api-docs/swagger.json', (_req, res) => res.json(swaggerSpec))
 
@@ -53,12 +54,7 @@ server.on('error', (error) => {
   exitWith(1)
 })
 
-/**
- * Наполнение идёт после listen, но до того, как event loop сможет взять
- * первый запрос: пока цикл не достроит Map, ни один обработчик не
- * выполнится, поэтому запросы не увидят пустые данные. Событие listening
- * придёт на следующем тике, то есть уже после наполнения.
- */
+
 const itemsCount = initItemsStore()
 
 server.once('listening', () => {

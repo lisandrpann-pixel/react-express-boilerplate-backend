@@ -17,10 +17,70 @@ import {
   ItemsDto,
 } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
+import {
+  IDEMPOTENCY_HEADER,
+  IDEMPOTENCY_KEY_MAX_LENGTH,
+} from '../../shared/configs/dedup.config'
+import {
+  dedup,
+  dedupKey,
+  IdempotencyConflictError,
+} from '../../shared/queue/dedup'
+import { fingerprintOf } from '../../shared/utils/request.utils'
+import { TOTAL_ITEMS } from '../../app/config'
 
 const itemsMap = new Map<number, ItemModel>()
 
-const TOTAL_ITEMS = 1_000_000
+/**
+ * Ошибка, которую нужно отдать клиенту как есть. Проверка «уже существует» или
+ * «не найден» живёт внутри дедупликации, то есть после await, поэтому вернуть
+ * ответ напрямую оттуда нельзя — приходится бросать и разворачивать в catch.
+ */
+class ItemError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+
+    this.name = 'ItemError'
+    this.status = status
+  }
+}
+
+const readIdempotencyKey = (req: Request): string | undefined => {
+  const header = req.get(IDEMPOTENCY_HEADER)
+
+  if (header === undefined) return undefined
+
+  const key = header.trim()
+
+  if (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+    throw new ItemError(
+      400,
+      `Некорректный ${IDEMPOTENCY_HEADER}: ожидается непустая строка длиной до ${IDEMPOTENCY_KEY_MAX_LENGTH} символов`
+    )
+  }
+
+  return key
+}
+
+const sendError = (res: Response, error: unknown): void => {
+  if (error instanceof IdempotencyConflictError) {
+    res.status(409).json({ error: error.message })
+    return
+  }
+
+  if (error instanceof ItemError) {
+    res.status(error.status).json({ error: error.message })
+    return
+  }
+
+  /**
+   * Неизвестная ошибка: отдавать её текст клиенту нельзя. Пусть дойдёт до
+   * errorHandler, который превратит её в 500 без деталей.
+   */
+  throw error
+}
 
 export const initItemsStore = (): number => {
   if (itemsMap.size > 0) return itemsMap.size
@@ -147,17 +207,30 @@ export const createItem = async (
     return
   }
 
-  if (itemsMap.has(id)) {
-    res.status(400).json({ error: `Элемент с id ${id} уже существует` })
+  try {
+    const header = readIdempotencyKey(req)
+    const fingerprint = fingerprintOf(req.body)
 
-    return
+    const newItem = await dedup(
+      dedupKey(header, fingerprint, `${req.method} ${req.path}`),
+      fingerprint,
+      async () => {
+        if (itemsMap.has(id)) {
+          throw new ItemError(400, `Элемент с id ${id} уже существует`)
+        }
+
+        const item: ItemModel = { id, order: id, isChosen: false }
+
+        itemsMap.set(id, item)
+
+        return item
+      }
+    )
+
+    res.status(201).json(newItem)
+  } catch (error) {
+    sendError(res, error)
   }
-
-  const newItem: ItemModel = { id, order: id, isChosen: false }
-
-  itemsMap.set(id, newItem)
-
-  res.status(201).json(newItem)
 }
 
 export const changeItem = async (
@@ -183,17 +256,30 @@ export const changeItem = async (
     return
   }
 
-  const item = itemsMap.get(id)
+  try {
+    const header = readIdempotencyKey(req)
+    const fingerprint = fingerprintOf(req.body)
 
-  if (!item) {
-    res.status(404).json({ error: 'Id не найден' })
+    const updated = await dedup(
+      dedupKey(header, fingerprint, `${req.method} ${req.path}`),
+      fingerprint,
+      async () => {
+        const item = itemsMap.get(id)
 
-    return
+        if (!item) {
+          throw new ItemError(404, 'Id не найден')
+        }
+
+        const newItem: ItemModel = { id, order, isChosen }
+
+        itemsMap.set(id, newItem)
+
+        return newItem
+      }
+    )
+
+    res.status(200).json(updated)
+  } catch (error) {
+    sendError(res, error)
   }
-
-  const newItem: ItemModel = { id, order, isChosen }
-
-  itemsMap.set(id, newItem)
-
-  res.status(200).json(newItem)
 }

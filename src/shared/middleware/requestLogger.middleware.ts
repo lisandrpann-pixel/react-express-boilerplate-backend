@@ -15,6 +15,16 @@ export const requestLogger: RequestHandler = pinoHttp({
   logger,
   genReqId: resolveRequestId,
   customLogLevel: (_req, res, error) => {
+    /**
+     * 503 с Retry-After — это сигнал перегрузки от admission. Он уже посчитан
+     * и залогирован там с прореживанием, а access-лог под флудом набил бы весь
+     * диск. Заголовок Retry-After отличает его от других 503 (например,
+     * /health во время остановки), которые логировать нужно
+     */
+    if (res.statusCode === 503 && res.getHeader('Retry-After') !== undefined) {
+      return 'silent'
+    }
+
     if (error !== undefined || res.statusCode >= 500) return 'error'
     if (res.statusCode >= 400) return 'warn'
 
