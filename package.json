@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/app/index.js",
   "scripts": {
-    "dev": "tsx --env-file=.env --watch src/app/index.ts",
+    "dev": "tsx --env-file=.env.development --watch src/app/index.ts",
     "build": "tsc",
     "start": "node dist/app/index.js",
     "pretty": "npx prettier . --write"
@@ -17,6 +17,7 @@
     "express-slow-down": "^3.1.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
+    "pino-roll": "^4.0.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1"
   },

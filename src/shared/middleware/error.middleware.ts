@@ -3,14 +3,16 @@ import { ErrorRequestHandler, RequestHandler } from 'express'
 import { logger } from '../logger/logger'
 import { ResponseError } from '../types/error.types'
 
-
 /**
  * Ошибки express.json()
  */
-const PARSER_ERRORS: Record<string, {
-  status: number
-  message: string
-}> = {
+const PARSER_ERRORS: Record<
+  string,
+  {
+    status: number
+    message: string
+  }
+> = {
   'entity.parse.failed': {
     status: 400,
     message: 'Тело запроса не является корректным JSON',
