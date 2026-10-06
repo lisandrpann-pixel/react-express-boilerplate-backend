@@ -3,7 +3,9 @@ import { Server } from 'node:http'
 import swaggerUi from 'swagger-ui-express'
 
 import healthRouter from '../pages/health/routes'
-import { initItemsStore } from '../pages/items/handlers'
+import {
+  initItemsStore,
+} from '../pages/items/handlers'
 import itemsRouter from '../pages/items/routes'
 import swaggerSpec from '../swagger'
 import { admission } from '../shared/middleware/admission.middleware'
@@ -18,6 +20,7 @@ import {
 import { logger } from '../shared/logger/logger'
 import { beginShutdown } from '../shared/state/lifecycle'
 import { PORT_DEFAULT, SHUTDOWN_TIMEOUT_MS } from './config'
+import { createLane } from '../shared/queue'
 
 const app = express()
 
@@ -43,6 +46,10 @@ app.use(notFoundHandler)
 
 app.use(errorHandler)
 
+const itemsCount = initItemsStore()
+
+createLane.start()
+
 const server: Server = app.listen(PORT)
 
 server.on('error', (error) => {
@@ -53,9 +60,6 @@ server.on('error', (error) => {
 
   exitWith(1)
 })
-
-
-const itemsCount = initItemsStore()
 
 server.once('listening', () => {
   logger.info(
@@ -140,9 +144,28 @@ const shutdown = (signal: string, exitCode: number): void => {
       return
     }
 
-    logger.info('Соединения закрыты, сбрасываю логи')
+    logger.info('Соединения закрыты, разгружаю очередь создания')
 
-    flushLogsAndExit(exitCode)
+    /**
+     * Досылаем то, что уже приняли от клиентов. Порядок важен: соединения уже
+     * закрыты, новые POST не придут и не смогут наполнить буфер заново во
+     * время разгрузки.
+     *
+     * Ожидание сознательное: клиент получил 202, и элемент обязан появиться
+     * раньше, чем процесс уйдёт. На случай зависшей разгрузки работает
+     * exitTimer выше — он выстрелит по SHUTDOWN_TIMEOUT_MS.
+     */
+    void (async (): Promise<void> => {
+      try {
+        await createLane.stop()
+
+        logger.info('Очередь создания разгружена, сбрасываю логи')
+      } catch (error) {
+        logger.error({ err: error }, 'Не удалось разгрузить очередь создания')
+      }
+
+      flushLogsAndExit(exitCode)
+    })()
   })
 
   /**

@@ -15,6 +15,7 @@ import {
   CreateItemDto,
   ItemDto,
   ItemsDto,
+  QueuedItemDto,
 } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
 import {
@@ -28,8 +29,13 @@ import {
 } from '../../shared/queue/dedup'
 import { fingerprintOf } from '../../shared/utils/request.utils'
 import { TOTAL_ITEMS } from '../../app/config'
-
-const itemsMap = new Map<number, ItemModel>()
+import {
+  CREATE_BATCH_RETRY_AFTER_SECONDS,
+} from '../../shared/configs/batch.config'
+import { BatchLaneFullError } from '../../shared/queue/batchLane'
+import { logger } from '../../shared/logger/logger'
+import { createLane } from '../../shared/queue'
+import { itemsMap, pendingIds } from '../../shared/state'
 
 /**
  * Ошибка, которую нужно отдать клиенту как есть. Проверка «уже существует» или
@@ -65,6 +71,23 @@ const readIdempotencyKey = (req: Request): string | undefined => {
 }
 
 const sendError = (res: Response, error: unknown): void => {
+  /**
+   * Буфер не успевает разгружаться. В access-лог этот ответ не попадёт —
+   * requestLogger молчит про 503 с Retry-After, потому что при неисправном
+   * admission их шли сотни в секунду. Здесь случай единичный и означает, что
+   * разгрузка встала, поэтому пишем его сами.
+   */
+  if (error instanceof BatchLaneFullError) {
+    logger.error(
+      { err: error },
+      'Очередь создания переполнена, запрос отклонён'
+    )
+
+    res.set('Retry-After', String(CREATE_BATCH_RETRY_AFTER_SECONDS))
+    res.status(503).json({ error: error.message })
+    return
+  }
+
   if (error instanceof IdempotencyConflictError) {
     res.status(409).json({ error: error.message })
     return
@@ -195,7 +218,7 @@ export const getItemById = (
 
 export const createItem = async (
   req: Request<Record<string, string>, unknown, CreateItemDto>,
-  res: Response<ItemDto | ResponseError>
+  res: Response<QueuedItemDto | ResponseError>
 ): Promise<void> => {
   const { id } = req.body ?? {}
 
@@ -211,7 +234,7 @@ export const createItem = async (
     const header = readIdempotencyKey(req)
     const fingerprint = fingerprintOf(req.body)
 
-    const newItem = await dedup(
+    const queued = await dedup(
       dedupKey(header, fingerprint, `${req.method} ${req.path}`),
       fingerprint,
       async () => {
@@ -219,15 +242,35 @@ export const createItem = async (
           throw new ItemError(400, `Элемент с id ${id} уже существует`)
         }
 
+        if (pendingIds.has(id)) {
+          throw new ItemError(
+            400,
+            `Элемент с id ${id} уже создаётся, дождитесь появления`
+          )
+        }
+
         const item: ItemModel = { id, order: id, isChosen: false }
 
-        itemsMap.set(id, item)
+        /**
+         * push идёт до pendingIds.add: если буфер полон, push бросает, и id так
+         * и остаётся свободным. Иначе он застрял бы забронированным навсегда
+         * и этот элемент нельзя было бы создать никогда.
+         */
+        createLane.push(item)
 
-        return item
+        pendingIds.add(id)
+
+        return { ...item, status: 'queued' as const }
       }
     )
 
-    res.status(201).json(newItem)
+    /**
+     * 202, а не 201: элемент ещё не добавлен, он в буфере. Иначе клиент
+     * ждал бы разгрузки до 10 секунд в открытом соединении и занимал слот,
+     * пока стоит в очереди.
+     */
+    res.set('Retry-After', String(CREATE_BATCH_RETRY_AFTER_SECONDS))
+    res.status(202).json(queued)
   } catch (error) {
     sendError(res, error)
   }
