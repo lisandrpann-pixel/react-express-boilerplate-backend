@@ -1,7 +1,11 @@
-import { ItemModel } from "../../entities/items/model"
-import { CREATE_BATCH_CAPACITY, CREATE_BATCH_INTERVAL_MS, CREATE_BATCH_MAX } from "../configs/batch.config"
-import { itemsMap, pendingIds } from "../state"
-import { BatchLane } from "./batchLane"
+import { ItemModel } from './model'
+import {
+  CREATE_BATCH_CAPACITY,
+  CREATE_BATCH_INTERVAL_MS,
+  CREATE_BATCH_MAX,
+} from '../../shared/config/batch.config'
+import { itemsMap, pendingIds } from './store'
+import { BatchLane } from '../../shared/lib/queue/batchLane'
 
 /**
  * Применяем пачку. Сейчас это запись в память, позже — один batched INSERT.

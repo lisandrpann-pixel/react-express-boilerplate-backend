@@ -6,5 +6,3 @@ export const PORT_DEFAULT = 3000
  * держит сокет, и ждать дальше бессмысленно
  */
 export const SHUTDOWN_TIMEOUT_MS = 10_000
-
-export const TOTAL_ITEMS = 1_000_000

@@ -1,7 +1,7 @@
 import { RequestHandler } from 'express'
 import pinoHttp from 'pino-http'
 
-import { logger } from '../logger/logger'
+import { logger } from '../services/logger'
 import { resolveRequestId } from '../utils/request.utils'
 
 /**

@@ -1,4 +1,4 @@
-import { ID_PATTERN, RANGE_PATTERN } from '../configs/pagination.config'
+import { ID_PATTERN, RANGE_PATTERN } from '../config/pagination.config'
 import { IdRange } from '../types/pagination.types'
 
 export const parseNonNegativeInt = (

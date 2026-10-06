@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express'
 
-import { isShuttingDown } from '../../shared/state/lifecycle'
+import { isShuttingDown } from '../../shared/services/lifecycle'
 import { ResponseHealth } from '../../shared/types/health.types'
 
 const startedAt = Date.now()

@@ -4,9 +4,9 @@ import {
   ADMISSION_LOG_INTERVAL_MS,
   ADMISSION_MAX_IN_FLIGHT,
   ADMISSION_RETRY_AFTER_SECONDS,
-} from '../configs/admission.config'
-import { logger } from '../logger/logger'
-import { isShuttingDown } from '../state/lifecycle'
+} from '../config/admission.config'
+import { logger } from '../services/logger'
+import { isShuttingDown } from '../services/lifecycle'
 import { ResponseError } from '../types/error.types'
 
 /**

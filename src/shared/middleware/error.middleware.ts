@@ -1,6 +1,6 @@
 import { ErrorRequestHandler, RequestHandler } from 'express'
 
-import { logger } from '../logger/logger'
+import { logger } from '../services/logger'
 import { ResponseError } from '../types/error.types'
 
 /**

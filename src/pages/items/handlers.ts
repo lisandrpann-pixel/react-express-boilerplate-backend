@@ -1,8 +1,5 @@
 import { Request, Response } from 'express'
-import {
-  DEFAULT_LIMIT,
-  MAX_LIMIT,
-} from '../../shared/configs/pagination.config'
+import { DEFAULT_LIMIT, MAX_LIMIT } from '../../shared/config/pagination.config'
 import {
   matchesIdFilter,
   parseIdFilter,
@@ -21,21 +18,18 @@ import { ResponseError } from '../../shared/types/error.types'
 import {
   IDEMPOTENCY_HEADER,
   IDEMPOTENCY_KEY_MAX_LENGTH,
-} from '../../shared/configs/dedup.config'
+} from '../../shared/config/dedup.config'
 import {
   dedup,
   dedupKey,
   IdempotencyConflictError,
-} from '../../shared/queue/dedup'
+} from '../../shared/lib/queue/dedup'
 import { fingerprintOf } from '../../shared/utils/request.utils'
-import { TOTAL_ITEMS } from '../../app/config'
-import {
-  CREATE_BATCH_RETRY_AFTER_SECONDS,
-} from '../../shared/configs/batch.config'
-import { BatchLaneFullError } from '../../shared/queue/batchLane'
-import { logger } from '../../shared/logger/logger'
-import { createLane } from '../../shared/queue'
-import { itemsMap, pendingIds } from '../../shared/state'
+import { CREATE_BATCH_RETRY_AFTER_SECONDS } from '../../shared/config/batch.config'
+import { BatchLaneFullError } from '../../shared/lib/queue/batchLane'
+import { logger } from '../../shared/services/logger'
+import { createLane } from '../../entities/items/createLane'
+import { itemsMap, pendingIds } from '../../entities/items/store'
 
 /**
  * Ошибка, которую нужно отдать клиенту как есть. Проверка «уже существует» или
@@ -103,16 +97,6 @@ const sendError = (res: Response, error: unknown): void => {
    * errorHandler, который превратит её в 500 без деталей.
    */
   throw error
-}
-
-export const initItemsStore = (): number => {
-  if (itemsMap.size > 0) return itemsMap.size
-
-  for (let id = 1; id <= TOTAL_ITEMS; id += 1) {
-    itemsMap.set(id, { id, order: id, isChosen: false })
-  }
-
-  return itemsMap.size
 }
 
 export const getItems = (

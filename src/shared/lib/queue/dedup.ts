@@ -1,6 +1,6 @@
 import { LRUCache } from 'lru-cache'
 
-import { DEDUP_MAX_ENTRIES, DEDUP_TTL_MS } from '../configs/dedup.config'
+import { DEDUP_MAX_ENTRIES, DEDUP_TTL_MS } from '../../config/dedup.config'
 
 /**
  * Что прислал клиент и на какое тело это было. Если один и тот же ключ

@@ -1,4 +1,4 @@
-import { logger } from '../logger/logger'
+import { logger } from '../../services/logger'
 
 export type BatchLaneOptions<T> = {
   /** Название операции — идёт в логи, чтобы понять, какая пачка упала */

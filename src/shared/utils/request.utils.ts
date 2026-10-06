@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto'
 import { IncomingMessage } from 'node:http'
 
-import { UUID_PATTERN } from '../configs/request.config'
+import { UUID_PATTERN } from '../config/request.config'
 
 export const resolveRequestId = (req: IncomingMessage): string => {
   const incoming = req.headers['x-request-id']

@@ -3,11 +3,9 @@ import { Server } from 'node:http'
 import swaggerUi from 'swagger-ui-express'
 
 import healthRouter from '../pages/health/routes'
-import {
-  initItemsStore,
-} from '../pages/items/handlers'
 import itemsRouter from '../pages/items/routes'
-import swaggerSpec from '../swagger'
+import { createLane } from '../entities/items/createLane'
+import { initItemsStore } from '../entities/items/store'
 import { admission } from '../shared/middleware/admission.middleware'
 import {
   errorHandler,
@@ -17,10 +15,10 @@ import {
   exposeRequestId,
   requestLogger,
 } from '../shared/middleware/requestLogger.middleware'
-import { logger } from '../shared/logger/logger'
-import { beginShutdown } from '../shared/state/lifecycle'
+import { beginShutdown } from '../shared/services/lifecycle'
+import { logger } from '../shared/services/logger'
 import { PORT_DEFAULT, SHUTDOWN_TIMEOUT_MS } from './config'
-import { createLane } from '../shared/queue'
+import swaggerSpec from './swagger'
 
 const app = express()
 

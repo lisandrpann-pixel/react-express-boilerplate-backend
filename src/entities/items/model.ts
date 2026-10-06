@@ -3,4 +3,3 @@ export type ItemModel = {
   isChosen: boolean
   order: number
 }
-              
