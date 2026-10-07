@@ -14,7 +14,9 @@ src/
 ├── pages/                     # точка входа: роутер + обработчики
 │   ├── items/
 │   │   ├── routes.ts          # express Router для /api/items + swagger-аннотации
-│   │   └── handlers.ts        # getItems, getItemById, createItem, changeItem
+│   │   ├── handlers.ts        # getItems, getItemById, createItem, changeItem
+│   │   ├── events.ts          # SSE /api/items/events: flushed, stats
+│   │   └── utils.ts           # ItemError, sendError, чтение Idempotency-Key
 │   └── health/
 │       ├── routes.ts          # GET /health
 │       └── handlers.ts
@@ -24,11 +26,13 @@ src/
 │       ├── model.ts           # ItemModel
 │       ├── dto.ts             # DTO и типы ответов
 │       ├── store.ts           # itemsMap, pendingIds, initItemsStore
-│       └── createLane.ts      # очередь создания: applyCreates + BatchLane
+│       ├── createLane.ts      # линия создания: applyCreates, ответ 202 не ждёт
+│       ├── changeLane.ts      # линия изменений: applyChanges, клиент ждёт
+│       └── readLane.ts        # линия чтений: общий снапшот, сборка страницы
 │
 └── shared/                    # общее, без знаний о домене
     ├── config/                # константы: admission, batch, dedup,
-    │                          # pagination, request, items
+    │                          # pagination, request, items, events
     ├── lib/
     │   └── queue/             # generic-механизмы: batchLane.ts, dedup.ts
     ├── services/              # инфраструктура процесса: logger.ts, lifecycle.ts

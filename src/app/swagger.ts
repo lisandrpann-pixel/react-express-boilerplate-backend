@@ -1,4 +1,10 @@
+import path from 'node:path'
 import swaggerJsdoc from 'swagger-jsdoc'
+
+import { logger } from '../shared/services/logger'
+import { PORT_DEFAULT } from './config'
+
+const pagesDir = path.resolve(__dirname, '../pages').replace(/\\/g, '/')
 
 const options = {
   definition: {
@@ -18,11 +24,17 @@ const options = {
         '- 500 { "error": "Внутренняя ошибка сервера" } — подробности только в логах сервера.',
       ].join('\n'),
     },
-    servers: [{ url: 'http://localhost:3000' }],
+    servers: [{ url: `http://localhost:${process.env.PORT || PORT_DEFAULT}` }],
   },
-  apis: ['./src/pages/**/*.ts'],
+  apis: [`${pagesDir}/**/*.{js,ts}`],
 }
 
 const swaggerSpec = swaggerJsdoc(options)
+
+const paths = (swaggerSpec as { paths?: Record<string, unknown> }).paths ?? {}
+
+if (Object.keys(paths).length === 0) {
+  logger.error({ apis: options.apis }, 'Swagger-аннотации не найдены')
+}
 
 export default swaggerSpec

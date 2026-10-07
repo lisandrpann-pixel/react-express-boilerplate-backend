@@ -78,7 +78,7 @@ export const itemsEventsRouter = Router()
  *
  *       Реплея нет: события, пропущенные во время обрыва соединения,
  *       не восстанавливаются. После переподключения клиент сверяет
- *       состояние через hello и GET /api/items.
+ *       состояние через stats и GET /api/items.
  *     tags:
  *       - Items
  *     responses:
@@ -94,7 +94,7 @@ export const itemsEventsRouter = Router()
  *               example: |
  *                 retry: 3000
  *
- *                 event: hello
+ *                 event: stats
  *                 data: {"queued":0,"pushedTotal":12,"flushedTotal":12,"lastFlushedAt":1791295175403,"clients":1}
  *
  *                 event: flushed
