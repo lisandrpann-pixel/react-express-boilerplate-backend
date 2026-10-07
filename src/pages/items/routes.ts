@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { changeItem, createItem, getItemById, getItems } from './handlers'
+import { changeItemHandler, createItemHandler, getItemByIdHandler, getItemsHandler } from './handlers'
 
 const router = Router()
 
@@ -138,7 +138,7 @@ const router = Router()
  *                     - 'Некорректный limit: ожидается целое положительное число'
  *                     - 'Некорректный id: ожидаемый формат - число (1), диапазон (1-12, 42)'
  */
-router.get('/items', getItems)
+router.get('/items', getItemsHandler)
 
 /**
  * @swagger
@@ -297,7 +297,7 @@ router.get('/items', getItems)
  *                   type: string
  *                   example: 'Очередь «создание» заполнена, попробуйте позже'
  */
-router.post('/items', createItem)
+router.post('/items', createItemHandler)
 
 /**
  * @swagger
@@ -428,7 +428,7 @@ router.post('/items', createItem)
  *                   type: string
  *                   example: 'Тело запроса превышает допустимый размер'
  */
-router.put('/items', changeItem)
+router.put('/items', changeItemHandler)
 
 /**
  * @swagger
@@ -495,6 +495,6 @@ router.put('/items', changeItem)
  *                   type: string
  *                   example: Id не найден
  */
-router.get('/items/:id', getItemById)
+router.get('/items/:id', getItemByIdHandler)
 
 export default router

@@ -16,90 +16,17 @@ import {
 } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
 import {
-  IDEMPOTENCY_HEADER,
-  IDEMPOTENCY_KEY_MAX_LENGTH,
-} from '../../shared/config/dedup.config'
-import {
   dedup,
   dedupKey,
-  IdempotencyConflictError,
 } from '../../shared/lib/queue/dedup'
 import { fingerprintOf } from '../../shared/utils/request.utils'
 import { CREATE_BATCH_RETRY_AFTER_SECONDS } from '../../shared/config/batch.config'
-import { BatchLaneFullError } from '../../shared/lib/queue/batchLane'
-import { logger } from '../../shared/services/logger'
-import { createLane } from '../../entities/items/createLane'
+
+import { batchLane } from '../../entities/items/batchLane'
 import { itemsMap, pendingIds } from '../../entities/items/store'
+import { ItemError, readIdempotencyKey, sendError } from './utils'
 
-/**
- * Ошибка, которую нужно отдать клиенту как есть. Проверка «уже существует» или
- * «не найден» живёт внутри дедупликации, то есть после await, поэтому вернуть
- * ответ напрямую оттуда нельзя — приходится бросать и разворачивать в catch.
- */
-class ItemError extends Error {
-  readonly status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-
-    this.name = 'ItemError'
-    this.status = status
-  }
-}
-
-const readIdempotencyKey = (req: Request): string | undefined => {
-  const header = req.get(IDEMPOTENCY_HEADER)
-
-  if (header === undefined) return undefined
-
-  const key = header.trim()
-
-  if (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
-    throw new ItemError(
-      400,
-      `Некорректный ${IDEMPOTENCY_HEADER}: ожидается непустая строка длиной до ${IDEMPOTENCY_KEY_MAX_LENGTH} символов`
-    )
-  }
-
-  return key
-}
-
-const sendError = (res: Response, error: unknown): void => {
-  /**
-   * Буфер не успевает разгружаться. В access-лог этот ответ не попадёт —
-   * requestLogger молчит про 503 с Retry-After, потому что при неисправном
-   * admission их шли сотни в секунду. Здесь случай единичный и означает, что
-   * разгрузка встала, поэтому пишем его сами.
-   */
-  if (error instanceof BatchLaneFullError) {
-    logger.error(
-      { err: error },
-      'Очередь создания переполнена, запрос отклонён'
-    )
-
-    res.set('Retry-After', String(CREATE_BATCH_RETRY_AFTER_SECONDS))
-    res.status(503).json({ error: error.message })
-    return
-  }
-
-  if (error instanceof IdempotencyConflictError) {
-    res.status(409).json({ error: error.message })
-    return
-  }
-
-  if (error instanceof ItemError) {
-    res.status(error.status).json({ error: error.message })
-    return
-  }
-
-  /**
-   * Неизвестная ошибка: отдавать её текст клиенту нельзя. Пусть дойдёт до
-   * errorHandler, который превратит её в 500 без деталей.
-   */
-  throw error
-}
-
-export const getItems = (
+export const getItemsHandler = (
   req: Request<
     Record<string, string>,
     unknown,
@@ -175,7 +102,7 @@ export const getItems = (
   })
 }
 
-export const getItemById = (
+export const getItemByIdHandler = (
   req: Request<{ id: string }>,
   res: Response<ItemDto | ResponseError>
 ) => {
@@ -200,7 +127,7 @@ export const getItemById = (
   res.json(item)
 }
 
-export const createItem = async (
+export const createItemHandler = async (
   req: Request<Record<string, string>, unknown, CreateItemDto>,
   res: Response<QueuedItemDto | ResponseError>
 ): Promise<void> => {
@@ -240,7 +167,7 @@ export const createItem = async (
          * и остаётся свободным. Иначе он застрял бы забронированным навсегда
          * и этот элемент нельзя было бы создать никогда.
          */
-        createLane.push(item)
+        batchLane.push(item)
 
         pendingIds.add(id)
 
@@ -260,7 +187,7 @@ export const createItem = async (
   }
 }
 
-export const changeItem = async (
+export const changeItemHandler = async (
   req: Request<Record<string, string>, unknown, ChangeItemDto>,
   res: Response<ItemDto | ResponseError>
 ): Promise<void> => {

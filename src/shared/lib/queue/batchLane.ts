@@ -27,8 +27,15 @@ export class BatchLaneFullError extends Error {
   }
 }
 
+/**
+ * Слушатель успешной разгрузки пачки. Очередь не знает, что за элементы
+ * в пачке, — домен получает их как есть и сам решает, что с ними делать.
+ */
+export type BatchLaneFlushListener<T> = (batch: T[]) => void
+
 export class BatchLane<T> {
   private readonly buffer: T[] = []
+  private readonly flushListeners: BatchLaneFlushListener<T>[] = []
   private timer: NodeJS.Timeout | undefined
   private draining: Promise<void> | undefined
   private pushedTotal = 0
@@ -45,6 +52,21 @@ export class BatchLane<T> {
     }, this.options.intervalMs)
 
     this.timer.unref()
+  }
+
+  /**
+   * Подписка на успешную разгрузку пачки: вызывается после того, как apply
+   * принял пачку. Возвращает функцию отписки — на случай, если подписчик
+   * живёт не всю жизнь процесса.
+   */
+  onFlush = (listener: BatchLaneFlushListener<T>): (() => void) => {
+    this.flushListeners.push(listener)
+
+    return () => {
+      const index = this.flushListeners.indexOf(listener)
+
+      if (index !== -1) this.flushListeners.splice(index, 1)
+    }
   }
 
   /**
@@ -97,6 +119,8 @@ export class BatchLane<T> {
 
         this.flushedTotal += batch.length
         this.lastFlushedAt = Date.now()
+
+        this.notifyFlush(batch)
       } catch (error) {
         this.buffer.unshift(...batch)
 
@@ -111,6 +135,23 @@ export class BatchLane<T> {
         )
 
         break
+      }
+    }
+  }
+
+  /**
+   * Ошибки слушателя гасим здесь же: разгрузка уже прошла успешно, и падение
+   * наблюдателя не имеет права вернуть пачку в буфер или оборвать остальных.
+   */
+  private notifyFlush = (batch: T[]): void => {
+    for (const listener of this.flushListeners) {
+      try {
+        listener(batch)
+      } catch (error) {
+        logger.error(
+          { err: error, lane: this.options.name, size: batch.length },
+          'Слушатель разгрузки упал'
+        )
       }
     }
   }

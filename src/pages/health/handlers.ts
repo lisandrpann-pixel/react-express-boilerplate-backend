@@ -9,7 +9,7 @@ const startedAt = Date.now()
  * Liveness и readiness в одном ответе: 200 пока процесс готов принимать трафик,
  * 503 когда он уже остановлен и его пора вывести из балансировки.
  */
-export const getHealth: RequestHandler = (_req, res) => {
+export const getHealthHandler: RequestHandler = (_req, res) => {
   const isDown = isShuttingDown()
   const body: ResponseHealth = {
     status: isDown ? 'shutting down' : 'ok',

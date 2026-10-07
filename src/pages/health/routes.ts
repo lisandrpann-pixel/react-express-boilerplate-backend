@@ -1,6 +1,6 @@
 import { Router } from 'express'
 
-import { getHealth } from './handlers'
+import { getHealthHandler } from './handlers'
 
 const router = Router()
 
@@ -53,6 +53,6 @@ const router = Router()
  *                   type: integer
  *                   example: 120
  */
-router.get('/health', getHealth)
+router.get('/health', getHealthHandler)
 
 export default router

@@ -4,7 +4,8 @@ import swaggerUi from 'swagger-ui-express'
 
 import healthRouter from '../pages/health/routes'
 import itemsRouter from '../pages/items/routes'
-import { createLane } from '../entities/items/createLane'
+import { closeItemsEvents, itemsEventsRouter } from '../pages/items/events'
+import { batchLane } from '../entities/items/batchLane'
 import { initItemsStore } from '../entities/items/store'
 import { admission } from '../shared/middleware/admission.middleware'
 import {
@@ -30,6 +31,14 @@ app.use(exposeRequestId)
 
 app.use(healthRouter)
 
+/**
+ * Поток событий монтируется до admission: подписчик живёт годами и держал бы
+ * слот inFlight всё это время — при сотне открытых потоков обработчики API
+ * остались бы без свободных мест и начали бы отдавать 503. Свой лимит
+ * у потока есть отдельно — SSE_MAX_CLIENTS
+ */
+app.use('/api', itemsEventsRouter)
+
 app.use(admission)
 
 app.use(express.json())
@@ -46,7 +55,7 @@ app.use(errorHandler)
 
 const itemsCount = initItemsStore()
 
-createLane.start()
+batchLane.start()
 
 const server: Server = app.listen(PORT)
 
@@ -95,6 +104,12 @@ const shutdown = (signal: string, exitCode: number): void => {
   beginShutdown()
 
   logger.info({ signal }, 'Получен сигнал остановки')
+
+  /**
+   * Закрываем потоки событий до server.close(): открытый поток — активное
+   * соединение, и close() ждал бы его конца, упёршись в forceTimer ниже
+   */
+  closeItemsEvents()
 
   /**
    * Порт мог не заняться: если bind упал, закрывать нечего, и close()
@@ -155,7 +170,7 @@ const shutdown = (signal: string, exitCode: number): void => {
      */
     void (async (): Promise<void> => {
       try {
-        await createLane.stop()
+        await batchLane.stop()
 
         logger.info('Очередь создания разгружена, сбрасываю логи')
       } catch (error) {
