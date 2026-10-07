@@ -1,6 +1,6 @@
-# digital-solutions/backend
+# react-express-boilerplate — backend part
 
-Express 5 + TypeScript, без ORM и без фреймворка поверх Express.
+Express 5 + TypeScript, без ORM и без фреймворка поверх Express
 
 ## Структура
 
