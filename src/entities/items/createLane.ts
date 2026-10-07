@@ -22,7 +22,7 @@ const applyCreates = async (batch: ItemModel[]): Promise<void> => {
   }
 }
 
-export const batchLane = new BatchLane<ItemModel>({
+export const createLane = new BatchLane<ItemModel>({
   name: 'создание',
   intervalMs: CREATE_BATCH_INTERVAL_MS,
   maxBatch: CREATE_BATCH_MAX,

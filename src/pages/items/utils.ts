@@ -4,11 +4,8 @@ import {
   IDEMPOTENCY_HEADER,
   IDEMPOTENCY_KEY_MAX_LENGTH,
 } from '../../shared/config/dedup.config'
-import {
-  IdempotencyConflictError,
-} from '../../shared/lib/queue/dedup'
+import { IdempotencyConflictError } from '../../shared/lib/queue/dedup'
 import { Request, Response } from 'express'
-import { CREATE_BATCH_RETRY_AFTER_SECONDS } from '../../shared/config/batch.config'
 
 export const readIdempotencyKey = (req: Request): string | undefined => {
   const header = req.get(IDEMPOTENCY_HEADER)
@@ -43,7 +40,6 @@ export class ItemError extends Error {
   }
 }
 
-
 export const sendError = (res: Response, error: unknown): void => {
   /**
    * Буфер не успевает разгружаться. В access-лог этот ответ не попадёт —
@@ -53,11 +49,11 @@ export const sendError = (res: Response, error: unknown): void => {
    */
   if (error instanceof BatchLaneFullError) {
     logger.error(
-      { err: error },
-      'Очередь создания переполнена, запрос отклонён'
+      { err: error, lane: error.lane, capacity: error.capacity },
+      'Очередь переполнена, запрос отклонён'
     )
 
-    res.set('Retry-After', String(CREATE_BATCH_RETRY_AFTER_SECONDS))
+    res.set('Retry-After', String(error.retryAfterSeconds))
     res.status(503).json({ error: error.message })
     return
   }

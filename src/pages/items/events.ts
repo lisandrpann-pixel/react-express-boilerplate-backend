@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express'
 
-import { batchLane } from '../../entities/items/batchLane'
+import { createLane } from '../../entities/items/createLane'
 import {
   SSE_HEARTBEAT_MS,
   SSE_MAX_CLIENTS,
@@ -51,7 +51,7 @@ const refuse = (res: Response, error: string): void => {
  * «элемент применился», знает только домен. Подписка на уровне модуля:
  * роутер импортируется один раз при старте, отписываться некому.
  */
-batchLane.onFlush((batch) => {
+createLane.onFlush((batch) => {
   broadcast('flushed', {
     ids: batch.map((item) => item.id),
     count: batch.length,
@@ -168,7 +168,7 @@ itemsEventsRouter.get('/items/events', (req: Request, res: Response) => {
   res.once('close', close)
   res.once('error', close)
 
-  send(res, 'hello', { ...batchLane.stats(), clients: clients.size })
+  send(res, 'stats', { ...createLane.stats(), clients: clients.size })
 
   logger.debug(
     { reqId: req.id, clients: clients.size },

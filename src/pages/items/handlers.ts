@@ -1,7 +1,6 @@
 import { Request, Response } from 'express'
 import { DEFAULT_LIMIT, MAX_LIMIT } from '../../shared/config/pagination.config'
 import {
-  matchesIdFilter,
   parseIdFilter,
   parseNonNegativeInt,
 } from '../../shared/utils/mapping.utils'
@@ -15,18 +14,17 @@ import {
   QueuedItemDto,
 } from '../../entities/items/dto'
 import { ResponseError } from '../../shared/types/error.types'
-import {
-  dedup,
-  dedupKey,
-} from '../../shared/lib/queue/dedup'
+import { dedup, dedupKey } from '../../shared/lib/queue/dedup'
 import { fingerprintOf } from '../../shared/utils/request.utils'
 import { CREATE_BATCH_RETRY_AFTER_SECONDS } from '../../shared/config/batch.config'
 
-import { batchLane } from '../../entities/items/batchLane'
+import { createLane } from '../../entities/items/createLane'
+import { changeLane } from '../../entities/items/changeLane'
+import { ReadQuery, readLane } from '../../entities/items/readLane'
 import { itemsMap, pendingIds } from '../../entities/items/store'
 import { ItemError, readIdempotencyKey, sendError } from './utils'
 
-export const getItemsHandler = (
+export const getItemsHandler = async (
   req: Request<
     Record<string, string>,
     unknown,
@@ -34,7 +32,7 @@ export const getItemsHandler = (
     PaginationAndFilterQuery
   >,
   res: Response<ItemsDto | ResponseError>
-) => {
+): Promise<void> => {
   const query = req.query
 
   const offset = parseNonNegativeInt(query.offset, 0)
@@ -75,31 +73,29 @@ export const getItemsHandler = (
 
   const pageSize = Math.min(limit, MAX_LIMIT)
 
-  let itemsFiltered = Array.from(itemsMap.values())
-
-  if (idRanges.length) {
-    itemsFiltered = itemsFiltered.filter((item) =>
-      matchesIdFilter(idRanges, item.id)
-    )
+  const readQuery: ReadQuery = {
+    offset,
+    limit: pageSize,
+    idRanges,
+    itemIdFilter,
+    hasChosenFilter,
+    wantChosen,
   }
 
-  if (hasChosenFilter) {
-    itemsFiltered = itemsFiltered.filter((item) => item.isChosen === wantChosen)
+  try {
+    /**
+     * Чтение уходит в линию и возвращается после разгрузки пачки: клиент
+     * ждёт на лоадере, зато все запросы одной пачки обрабатываются разом.
+     * Переполнение линии приходит отказом промиса и уходит в sendError.
+     */
+    const page = await new Promise<ItemsDto>((resolve) => {
+      readLane.push({ query: readQuery, done: resolve })
+    })
+
+    res.json(page)
+  } catch (error) {
+    sendError(res, error)
   }
-
-  const data = itemsFiltered.slice(offset, offset + pageSize)
-
-  res.json({
-    data,
-    pagination: {
-      offset,
-      limit: pageSize,
-      total: itemsFiltered.length,
-      hasMore: offset + data.length < itemsFiltered.length,
-      ...(itemIdFilter ? { itemIdFilter } : {}),
-      ...(hasChosenFilter ? { isChosenFilter: wantChosen } : {}),
-    },
-  })
 }
 
 export const getItemByIdHandler = (
@@ -167,7 +163,7 @@ export const createItemHandler = async (
          * и остаётся свободным. Иначе он застрял бы забронированным навсегда
          * и этот элемент нельзя было бы создать никогда.
          */
-        batchLane.push(item)
+        createLane.push(item)
 
         pendingIds.add(id)
 
@@ -226,7 +222,13 @@ export const changeItemHandler = async (
 
         const newItem: ItemModel = { id, order, isChosen }
 
-        itemsMap.set(id, newItem)
+        /**
+         * В отличие от создания, здесь клиент отпускается только с
+         * применённым элементом: ответ — это 200, а не 202, поэтому ждём
+         * разгрузки пачки. Если apply упадёт, промис не разрешится до
+         * удачного повтора, и клиент останется на лоадере.
+         */
+        await changeLane.enqueue(newItem)
 
         return newItem
       }

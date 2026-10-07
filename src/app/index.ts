@@ -5,7 +5,9 @@ import swaggerUi from 'swagger-ui-express'
 import healthRouter from '../pages/health/routes'
 import itemsRouter from '../pages/items/routes'
 import { closeItemsEvents, itemsEventsRouter } from '../pages/items/events'
-import { batchLane } from '../entities/items/batchLane'
+import { createLane } from '../entities/items/createLane'
+import { changeLane } from '../entities/items/changeLane'
+import { readLane } from '../entities/items/readLane'
 import { initItemsStore } from '../entities/items/store'
 import { admission } from '../shared/middleware/admission.middleware'
 import {
@@ -55,7 +57,9 @@ app.use(errorHandler)
 
 const itemsCount = initItemsStore()
 
-batchLane.start()
+createLane.start()
+changeLane.start()
+readLane.start()
 
 const server: Server = app.listen(PORT)
 
@@ -157,24 +161,30 @@ const shutdown = (signal: string, exitCode: number): void => {
       return
     }
 
-    logger.info('Соединения закрыты, разгружаю очередь создания')
+    logger.info('Соединения закрыты, разгружаю очереди')
 
     /**
      * Досылаем то, что уже приняли от клиентов. Порядок важен: соединения уже
-     * закрыты, новые POST не придут и не смогут наполнить буфер заново во
-     * время разгрузки.
+     * закрыты, новые запросы не придут и не смогут наполнить буферы заново
+     * во время разгрузки.
      *
-     * Ожидание сознательное: клиент получил 202, и элемент обязан появиться
-     * раньше, чем процесс уйдёт. На случай зависшей разгрузки работает
-     * exitTimer выше — он выстрелит по SHUTDOWN_TIMEOUT_MS.
+     * Ожидание сознательное: у создания клиент получил 202, и элемент
+     * обязан появиться раньше, чем процесс уйдёт. Линии изменений и чтения
+     * дополнительно закрывают висящие PUT/GET — их промисы разрешаются только
+     * вместе с разгрузкой. На случай зависшей разгрузки работает exitTimer
+     * выше — он выстрелит по SHUTDOWN_TIMEOUT_MS.
      */
     void (async (): Promise<void> => {
       try {
-        await batchLane.stop()
+        await Promise.all([
+          createLane.stop(),
+          changeLane.stop(),
+          readLane.stop(),
+        ])
 
-        logger.info('Очередь создания разгружена, сбрасываю логи')
+        logger.info('Очереди разгружены, сбрасываю логи')
       } catch (error) {
-        logger.error({ err: error }, 'Не удалось разгрузить очередь создания')
+        logger.error({ err: error }, 'Не удалось разгрузить очереди')
       }
 
       flushLogsAndExit(exitCode)

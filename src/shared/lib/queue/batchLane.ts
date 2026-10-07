@@ -17,13 +17,19 @@ export type BatchLaneOptions<T> = {
  * Буфер переполнен: разгрузка не успевает за входящим потоком.
  */
 export class BatchLaneFullError extends Error {
+  /** Название линии: в логах и ответе нужно знать, какая именно встала */
+  readonly lane: string
   readonly capacity: number
+  /** Период разгрузки этой же линии в секундах — его отдаём в Retry-After */
+  readonly retryAfterSeconds: number
 
-  constructor(name: string, capacity: number) {
+  constructor(name: string, capacity: number, retryAfterSeconds: number) {
     super(`Очередь «${name}» заполнена, попробуйте позже`)
 
     this.name = 'BatchLaneFullError'
+    this.lane = name
     this.capacity = capacity
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -33,8 +39,19 @@ export class BatchLaneFullError extends Error {
  */
 export type BatchLaneFlushListener<T> = (batch: T[]) => void
 
+/**
+ * Элемент в буфере вместе с ожиданием из enqueue.
+ *
+ * flushed пуст у пушей, которые никто не ждёт: там ответ уходит клиенту
+ * сразу, а не после разгрузки.
+ */
+type BufferSlot<T> = {
+  item: T
+  flushed: (() => void) | undefined
+}
+
 export class BatchLane<T> {
-  private readonly buffer: T[] = []
+  private readonly buffer: BufferSlot<T>[] = []
   private readonly flushListeners: BatchLaneFlushListener<T>[] = []
   private timer: NodeJS.Timeout | undefined
   private draining: Promise<void> | undefined
@@ -70,14 +87,38 @@ export class BatchLane<T> {
   }
 
   /**
-   * Добавляет элемент в буффер.
+   * Добавляет элемент в буфер, разгрузки никто не ждёт.
    */
   push = (item: T): void => {
+    this.put(item, undefined)
+  }
+
+  /**
+   * Кладёт элемент в буфер и ждёт, пока его пачка выгрузится.
+   *
+   * Промис разрешается только после успешного apply всей пачки. Если apply
+   * упал, пачка возвращается в буфер, и ожидание продолжается до удачного
+   * повтора — обработчик сидит на лоадере ровно столько, сколько нужно.
+   *
+   * Переполнение буфера приходит отказом промиса, а не синхронным броском:
+   * throw внутри исполнителя промиса превращается в reject, и обработчику
+   * достаточно одного catch — там же ловится и ошибка применения.
+   */
+  enqueue = (item: T): Promise<void> =>
+    new Promise<void>((resolve) => {
+      this.put(item, resolve)
+    })
+
+  private put = (item: T, flushed: (() => void) | undefined): void => {
     if (this.buffer.length >= this.options.capacity) {
-      throw new BatchLaneFullError(this.options.name, this.options.capacity)
+      throw new BatchLaneFullError(
+        this.options.name,
+        this.options.capacity,
+        Math.ceil(this.options.intervalMs / 1000)
+      )
     }
 
-    this.buffer.push(item)
+    this.buffer.push({ item, flushed })
     this.pushedTotal += 1
 
     if (
@@ -112,7 +153,8 @@ export class BatchLane<T> {
 
   private drain = async (): Promise<void> => {
     while (this.buffer.length > 0) {
-      const batch = this.buffer.splice(0, this.options.maxBatch)
+      const slots = this.buffer.splice(0, this.options.maxBatch)
+      const batch = slots.map((slot) => slot.item)
 
       try {
         await this.options.apply(batch)
@@ -121,8 +163,14 @@ export class BatchLane<T> {
         this.lastFlushedAt = Date.now()
 
         this.notifyFlush(batch)
+
+        /**
+         * Ожидания разрешаем последними: клиент получает ответ только когда
+         * пачка целиком принята и раздана подписчикам onFlush.
+         */
+        for (const slot of slots) slot.flushed?.()
       } catch (error) {
-        this.buffer.unshift(...batch)
+        this.buffer.unshift(...slots)
 
         logger.error(
           {
