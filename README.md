@@ -64,6 +64,8 @@ npm run dev      # разработка: tsx --watch, читает .env.developm
 npm run build    # tsc → dist/
 npm start        # node dist/app/index.js
 npm run pretty   # prettier --write
+npm run lint     # eslint .
+npm run lint:fix # eslint . --fix
 ```
 
 ## Переменные окружения
@@ -90,7 +92,20 @@ npm run pretty   # prettier --write
 
 ```bash
 npx tsc --noEmit
+npm run lint
 npx prettier --check "src/**/*.ts"
 ```
 
-Линтера и тестов в проекте пока нет.
+Тестов в проекте пока нет.
+
+## Инструменты
+
+- **ESLint** (`eslint.config.mjs`): `@eslint/js` + `typescript-eslint` + `eslint-config-prettier`
+  (последний гасит правила, конфликтующие с Prettier).
+- **TypeScript 7 + 6 параллельно**: `tsc` — нативный TS 7.0 (пакет `@typescript/native`),
+  а `require('typescript')` резолвится в TS 6 API (пакет `typescript` =
+  `npm:@typescript/typescript6`), потому что TS 7.0 ещё не имеет JS API,
+  а typescript-eslint работает через него. Подробности:
+  <https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6.0>
+- **`.npmrc`** содержит `legacy-peer-deps=true` — peer-диапазоны `typescript-eslint`
+  пока не знают про эти алиасы, обычный `npm install` на них падает.
