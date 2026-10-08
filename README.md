@@ -88,6 +88,53 @@ npm run lint:fix # eslint . --fix
 Аннотации лежат в `src/pages/**/routes.ts` и подхватываются `swagger-jsdoc`
 при старте — отдельно спеку руками не дописывают.
 
+## Деплой
+
+Стек: Docker Compose — `backend` (API, порт наружу не публикуется) +
+`frontend` (nginx: статика Vite + reverse-proxy `/api`, `/health`, `/api-docs`
+на backend:3000). Ком-файл лежит здесь, но собирает `frontend` из соседнего
+`../frontend` — на сервере оба репозитория клонируются как соседи.
+
+### Первый запуск на сервере
+
+```bash
+# Docker (если ещё нет), например на Debian/Ubuntu:
+curl -fsSL https://get.docker.com | sh
+
+# Оба репозитория как соседи:
+mkdir -p /opt/app && cd /opt/app
+git clone <url-backend>  backend
+git clone <url-frontend> frontend
+
+# Сборка и запуск:
+./backend/deploy.sh
+
+# Открыть порт 80 (ufw / security group / iptables)
+```
+
+Проверка: `curl http://<IP>/health`, `http://<IP>/api/items`,
+`http://<IP>/` (интерфейс), `http://<IP>/api-docs` (Swagger).
+
+### Обновление (SSH, вручную)
+
+```bash
+/opt/app/backend/deploy.sh
+```
+
+Скрипт делает `git pull` обоих репозиториев и
+`docker compose up -d --build`. Логи: `docker compose -f
+/opt/app/backend/docker-compose.yml logs -f`.
+
+Откат: `cd /opt/app/backend && git reset --hard <коммит>` + повторный
+запуск `deploy.sh`.
+
+Особенности:
+
+- в проде `LOG_FILE` пуст — логи идут в stdout (`docker logs`);
+- данные хранятся в памяти процесса (БД нет), пересоздание контейнера
+  сбрасывает items;
+- CORS не настраивается: статика и API отдаются с одного origin.
+
 ## Проверки перед коммитом
 
 ```bash

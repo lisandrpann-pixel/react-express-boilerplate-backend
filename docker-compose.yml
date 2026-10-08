@@ -1,0 +1,36 @@
+# Стойка приложения: backend (API) + frontend (nginx со статикой и reverse-proxy).
+# Файл лежит в backend/, но собирает frontend из соседнего ../frontend —
+# на сервере оба репозитория клонируются как соседи.
+#
+# Запуск:  docker compose up -d --build
+# Обновление: ./deploy.sh
+
+services:
+  backend:
+    build:
+      context: .
+    environment:
+      PORT: "3000"
+      LOG_LEVEL: info
+      # Пусто — логи только в stdout, их забирает `docker logs`
+      LOG_FILE: ""
+    restart: unless-stopped
+    # Порт наружу не публикуем — трафик идёт через nginx у frontend
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: ../frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
