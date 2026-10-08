@@ -254,7 +254,7 @@ router.get('/items', getItemsHandler)
  *                   type: boolean
  *                   example: false
  *                 order:
- *                   type: integer
+ *                   type: float
  *                   example: 1000001
  *                 status:
  *                   type: string
@@ -385,7 +385,7 @@ router.post('/items', createItemHandler)
  *                 description: Отмечен ли элемент как выбранный
  *                 example: true
  *               order:
- *                 type: integer
+ *                 type: float
  *                 description: Новый порядковый номер элемента
  *                 example: 10
  *     responses:
@@ -407,11 +407,11 @@ router.post('/items', createItemHandler)
  *                   type: boolean
  *                   example: true
  *                 order:
- *                   type: integer
+ *                   type: float
  *                   example: 10
  *       '400':
  *         description: >
- *           Некорректный id, либо isChosen не boolean, либо order не целое
+ *           Некорректный id, либо isChosen не boolean
  *           число
  *         content:
  *           application/json:
@@ -525,7 +525,7 @@ router.put('/items', changeItemHandler)
  *                   type: boolean
  *                   example: false
  *                 order:
- *                   type: integer
+ *                   type: float
  *                   example: 1
  *       '400':
  *         description: id не является целым числом

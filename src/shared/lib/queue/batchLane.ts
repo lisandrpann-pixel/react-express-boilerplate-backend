@@ -121,10 +121,7 @@ export class BatchLane<T> {
     this.buffer.push({ item, flushed })
     this.pushedTotal += 1
 
-    if (
-      this.buffer.length >= this.options.maxBatch &&
-      this.draining === undefined
-    ) {
+    if (this.draining === undefined) {
       void this.flush()
     }
   }

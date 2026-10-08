@@ -197,12 +197,11 @@ export const changeItemHandler = async (
     return
   }
 
-  if (typeof isChosen !== 'boolean' || !Number.isInteger(order)) {
+  if (typeof isChosen !== 'boolean' || typeof order !== 'number' || !Number.isFinite(order)) {
     res.status(400).json({
       error:
-        'Некорректные данные: isChosen должен быть boolean, order — целым числом',
+        'Некорректные данные: isChosen должен быть boolean',
     })
-
     return
   }
 
