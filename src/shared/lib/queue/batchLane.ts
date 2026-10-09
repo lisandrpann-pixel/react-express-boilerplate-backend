@@ -121,7 +121,16 @@ export class BatchLane<T> {
     this.buffer.push({ item, flushed })
     this.pushedTotal += 1
 
-    if (this.draining === undefined) {
+    /**
+     * Разгрузка по двум причинам: буфер собрал maxBatch — не ждём таймер,
+     * и таймер intervalMs — мелкие пачки не застревают до потолка. Пока
+     * draining не закончен, новые элементы копятся в буфере и уходят
+     * следующей пачкой
+     */
+    if (
+      this.buffer.length >= this.options.maxBatch &&
+      this.draining === undefined
+    ) {
       void this.flush()
     }
   }
